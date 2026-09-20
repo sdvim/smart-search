@@ -1,0 +1,217 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light dark;
+  --ink: #000;
+  --paper: #fff;
+  color: var(--ink);
+  background: var(--paper);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button {
+  font: inherit;
+}
+.demo {
+  max-width: 1600px;
+  padding: 48px 64px 64px;
+  margin: 0 auto;
+}
+.demo-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 560px) 1fr;
+  gap: 24px;
+  align-items: center;
+  padding: 12px 0;
+  margin-bottom: 48px;
+  background: var(--paper);
+  transform: translateY(0);
+  transition: transform 180ms ease;
+  will-change: transform;
+}
+.demo-header.is-hidden {
+  transform: translateY(-100%);
+}
+.demo-header p {
+  margin: 0;
+  white-space: nowrap;
+}
+.wallet {
+  text-align: right;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  column-gap: 32px;
+  row-gap: 32px;
+  transition: opacity 150ms ease;
+}
+.result-grid[data-loading="true"] {
+  opacity: 0.55;
+}
+.results-sentinel {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  opacity: 0.5;
+}
+.results-sentinel button {
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 15px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+.collectible-card {
+  min-width: 0;
+  text-align: center;
+}
+.card-image {
+  position: relative;
+  width: 140px;
+  height: 236px;
+  max-width: 100%;
+  margin: 0 auto 10px;
+}
+.card-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.card-lqip {
+  position: absolute;
+  inset: 0;
+  filter: blur(3px);
+}
+.card-photo {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.card-image[data-loaded="true"] .card-photo {
+  opacity: 1;
+}
+.card-placeholder {
+  opacity: 0.45;
+}
+.collectible-card h2 {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  margin: 0 0 8px;
+  min-height: 20px;
+}
+.estimated-value {
+  font-weight: 600;
+  margin: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.buy-button {
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  padding: 6px 15px;
+  line-height: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+.buy-button:hover,
+.buy-button:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+}
+.buy-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.result-message {
+  padding: 64px 0;
+  text-align: center;
+}
+.result-message p {
+  margin: 0 0 8px;
+}
+.result-message span {
+  opacity: 0.5;
+}
+.result-message button {
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 15px;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+@media (max-width: 1050px) {
+  .demo {
+    padding: 36px 32px;
+  }
+  .demo-header {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .demo-header .smart-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .result-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    gap: 32px 24px;
+  }
+}
+@media (max-width: 700px) {
+  .demo {
+    padding: 24px 18px 40px;
+  }
+  .demo-header {
+    margin-bottom: 32px;
+    gap: 20px;
+  }
+  .result-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    gap: 30px 16px;
+  }
+  .card-image {
+    width: 132px;
+    height: 223px;
+  }
+  .collectible-card h2 {
+    font-size: 13px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #fff;
+    --paper: #111;
+  }
+  .card-placeholder {
+    filter: invert(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
