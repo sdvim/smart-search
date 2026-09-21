@@ -18,17 +18,29 @@ export function preferenceScore(field: SearchField, value: unknown, context: Sea
   return position < 0 ? 0 : 1 / (position + 1);
 }
 
+function hasValue(value: unknown, expected: string) {
+  const values = Array.isArray(value) ? value : [value];
+  return values.some((entry) => typeof entry === "string" && normalize(entry) === expected);
+}
+
+function availabilityScore<T extends SearchRecord>(index: SearchIndex<T>, record: T) {
+  const ownershipField = index.dictionary.fields.find((field) => field.key === "ownership");
+  const listingField = index.dictionary.fields.find((field) => field.key === "listing");
+  const owned = ownershipField
+    ? hasValue(fieldValue(record, ownershipField), "mine") ||
+      hasValue(fieldValue(record, ownershipField), "vaulted")
+    : false;
+  if (owned) return -1;
+  return listingField && hasValue(fieldValue(record, listingField), "listed") ? 1 : 0;
+}
+
 export function rankRecords<T extends SearchRecord>(
   index: SearchIndex<T>,
   matches: T[],
   context: SearchContext,
   query: ParsedQuery,
 ): T[] {
-  if (
-    query.tokens.some((token) => token.direction) ||
-    (!context.price_range && !Object.keys(context.preferred_values ?? {}).length)
-  )
-    return matches;
+  if (query.tokens.some((token) => token.direction)) return matches;
   const occupied = new Set(query.tokens.map((token) => token.field));
   const fields = index.dictionary.fields.filter((field) => !occupied.has(field.key));
   const ranked = matches.map((record, position) => {
@@ -45,9 +57,9 @@ export function rankRecords<T extends SearchRecord>(
       )
         score++;
     }
-    return { record, score, position };
+    return { record, score, availability: availabilityScore(index, record), position };
   });
   return ranked
-    .sort((a, b) => b.score - a.score || a.position - b.position)
+    .sort((a, b) => b.score - a.score || b.availability - a.availability || a.position - b.position)
     .map(({ record }) => record);
 }

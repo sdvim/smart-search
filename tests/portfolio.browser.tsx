@@ -8,6 +8,7 @@ import { App } from "../src/demo/App.tsx";
 import { summarizePortfolio } from "../src/demo/portfolio.ts";
 import type { PortfolioSummary, PortfolioSnapshot } from "../src/demo/portfolio.ts";
 import type { Collectible } from "../src/demo/collectibles.ts";
+import { usePortfolio } from "../src/demo/usePortfolio.ts";
 import type { SearchContext } from "../src/search/types.ts";
 import type { SearchResponse } from "../src/search/types.ts";
 import { card } from "./fixtures.ts";
@@ -47,6 +48,20 @@ function renderApp() {
         <App />
       </StrictMode>,
     ),
+  );
+}
+
+function PortfolioHeuristicHarness({ items }: { items: Collectible[] }) {
+  const account = usePortfolio();
+  return (
+    <>
+      <output data-testid="search-context">{JSON.stringify(account.searchContext)}</output>
+      {items.map((item) => (
+        <button key={item.id} type="button" onClick={() => account.sell(item)}>
+          Sell {item.id}
+        </button>
+      ))}
+    </>
   );
 }
 
@@ -126,6 +141,43 @@ describe("portfolio integration", () => {
     expect(requests.at(-1)?.user).toEqual({ wallet_balance: 398.28 });
     expect(container.querySelectorAll(".collectible-card").length).toBeGreaterThan(0);
     await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("recalculates search preferences after selling holdings", async () => {
+    const items = [
+      card("slaking-1", { subject: "Slaking", fair_market_value: 10 }),
+      card("slaking-2", { subject: "Slaking", fair_market_value: 20 }),
+      card("slaking-3", { subject: "Slaking", fair_market_value: 30 }),
+      card("alakazam", { subject: "Alakazam", fair_market_value: 40 }),
+      card("pikachu", { subject: "Pikachu", fair_market_value: 50 }),
+    ];
+    const snapshot: PortfolioSnapshot = {
+      ...summarizePortfolio(
+        items,
+        items.map((item) => item.id),
+      ),
+      items,
+    };
+    const originalFetch = window.fetch.bind(window);
+    vi.spyOn(window, "fetch").mockImplementation((input) => {
+      if (input === "/api/portfolio") return Promise.resolve(Response.json(snapshot));
+      return originalFetch(input);
+    });
+    flushSync(() =>
+      root.render(
+        <StrictMode>
+          <PortfolioHeuristicHarness items={items} />
+        </StrictMode>,
+      ),
+    );
+    await expect
+      .poll(() => container.querySelector("[data-testid=search-context]")?.textContent)
+      .toContain('"subject":["Slaking","Alakazam","Pikachu"]');
+    for (const item of items.slice(0, 3))
+      await userEvent.click(page.getByRole("button", { name: `Sell ${item.id}` }));
+    await expect
+      .poll(() => container.querySelector("[data-testid=search-context]")?.textContent)
+      .toContain('"subject":["Alakazam","Pikachu"]');
   });
 
   it("cancels the portfolio request when the app unmounts", async () => {

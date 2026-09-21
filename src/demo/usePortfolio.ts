@@ -76,7 +76,7 @@ export function usePortfolio() {
   return {
     portfolio,
     balance: transactionBalance(transactions),
-    searchContext: { wallet_balance: demoUser.wallet_balance, ...snapshot?.preferences },
+    searchContext: { wallet_balance: demoUser.wallet_balance, ...portfolio?.preferences },
     purchasedIds: overrides.purchasedIds,
     soldIds: overrides.soldIds,
     owns: (item: Collectible) => ownedIds.has(item.id),

@@ -5,11 +5,15 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { App } from "../src/demo/App.tsx";
-import { demoUser, formatMoney } from "../src/demo/collectibles.ts";
+import { collectibleFields, demoUser, formatMoney } from "../src/demo/collectibles.ts";
 import type { Collectible } from "../src/demo/collectibles.ts";
 import { summarizePortfolio } from "../src/demo/portfolio.ts";
 import type { PortfolioSnapshot } from "../src/demo/portfolio.ts";
 import { sellValue } from "../src/demo/purchase.ts";
+import { filterRecords } from "../src/search/filter.ts";
+import { buildIndex } from "../src/search/index-data.ts";
+import { parseQuery } from "../src/search/parse.ts";
+import { rankRecords } from "../src/search/preferences.ts";
 import type { SearchContext, SearchResponse } from "../src/search/types.ts";
 import { card } from "./fixtures.ts";
 
@@ -258,6 +262,7 @@ describe("session commerce", () => {
     await userEvent.dblClick(article(buyable.id)!.querySelector(".buy-button")!);
     await amounts(148.28, 480);
     await ready();
+    const requestsAfterPurchase = requests.length;
     expect(article(buyable.id)!.querySelector<HTMLButtonElement>(".buy-button")!.disabled).toBe(
       false,
     );
@@ -265,8 +270,9 @@ describe("session commerce", () => {
     expect(blocked.disabled).toBe(true);
     expect(blocked.title).toBe("Insufficient balance");
     blocked.click();
-    expect(requests.length).toBe(requestCount);
-    expect(requests.at(-1)?.purchased_ids).toEqual([]);
+    expect(requestsAfterPurchase).toBe(requestCount + 1);
+    expect(requests.length).toBe(requestsAfterPurchase);
+    expect(requests.at(-1)?.purchased_ids).toEqual([buyable.id]);
     expect(requests.at(-1)?.user.wallet_balance).toBe(demoUser.wallet_balance);
     await amounts(148.28, 480);
   });
@@ -308,9 +314,77 @@ describe("session commerce", () => {
     await expect.element(page.getByRole("button", { name: "Sell for $90.00" })).toBeVisible();
     await userEvent.click(button);
     await amounts(488.28, 0);
-    expect(requests).toBe(1);
+    expect(requests).toBe(2);
     expect(button.disabled).toBe(false);
     expect(button.textContent).toContain("Buy for $20.00");
+  });
+
+  it("keeps mine results in place when selling changes portfolio preferences", async () => {
+    const items = [
+      card("a", { subject: "Pikachu", grade: 9, listed_value: 20, fair_market_value: 20 }),
+      card("b", { subject: "Pikachu", grade: 9, listed_value: 20, fair_market_value: 20 }),
+      card("c", { subject: "Alakazam", grade: 9, listed_value: 20, fair_market_value: 20 }),
+    ];
+    const snapshot: PortfolioSnapshot = {
+      ...summarizePortfolio(
+        items,
+        items.map((item) => item.id),
+      ),
+      items,
+    };
+    const originalFetch = window.fetch.bind(window);
+    const requests: SearchRequest[] = [];
+    vi.spyOn(window, "fetch").mockImplementation((input, init) => {
+      if (input === "/api/portfolio") return Promise.resolve(Response.json(snapshot));
+      if (input === "/api/search") {
+        const request = JSON.parse(String(init?.body)) as SearchRequest;
+        requests.push(request);
+        const sold = new Set(request.sold_ids);
+        const records = items
+          .filter((item) => !sold.has(item.id))
+          .map((item) => ({ ...item, ownership: ["mine", "vaulted"] }));
+        const searchIndex = buildIndex(records, collectibleFields);
+        const parsed = parseQuery(request.query, searchIndex.dictionary);
+        const matches = rankRecords(
+          searchIndex,
+          filterRecords(searchIndex, parsed),
+          request.user,
+          parsed,
+        );
+        return Promise.resolve(
+          Response.json({
+            items: matches,
+            total: matches.length,
+            suggestion: null,
+            page: 0,
+            page_size: 24,
+            has_more: false,
+          }),
+        );
+      }
+      return originalFetch(input, init);
+    });
+    renderApp();
+    await ready();
+    await page.getByRole("button", { name: "Show my portfolio", exact: true }).click();
+    await expect
+      .element(page.getByRole("button", { name: "Edit mine", exact: true }))
+      .toBeVisible();
+    await ready();
+    const requestCount = requests.length;
+    const resultIds = () =>
+      [...container.querySelectorAll<HTMLElement>(".collectible-card")].map(
+        (item) => item.dataset.itemId,
+      );
+    expect(resultIds()).toEqual(["a", "b", "c"]);
+    const sellButton = article("a")!.querySelector<HTMLButtonElement>(".buy-button")!;
+    await userEvent.hover(sellButton);
+    await expect.element(page.getByRole("button", { name: "Sell for $18.00" })).toBeVisible();
+    await userEvent.click(sellButton);
+    await amounts(416.28, 40);
+    await ready();
+    expect(requests.length).toBe(requestCount);
+    expect(resultIds()).toEqual(["b", "c"]);
   });
 
   it("updates a purchased grid card without replacing the search result", async () => {
@@ -344,7 +418,7 @@ describe("session commerce", () => {
     const image = articleElement.querySelector(".card-image");
     await userEvent.click(articleElement.querySelector(".buy-button")!);
     await amounts(378.28, 40);
-    expect(requests).toBe(1);
+    expect(requests).toBe(2);
     expect(article(item.id)!.querySelector(".card-image")).toBe(image);
     expect(article(item.id)!.querySelector(".buy-button")!.textContent).toContain("Owned");
   });

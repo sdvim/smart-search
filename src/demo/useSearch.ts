@@ -74,7 +74,12 @@ export function useSearch(
     [ownership],
   );
   const { purchasedIds, soldIds } = ownershipIds;
-  const requestInputKey = JSON.stringify({ query, active_range: range, user });
+  const ownershipScoped = value.tokens.some((token) => token.field === "ownership");
+  const requestInputKey = JSON.stringify({
+    query,
+    active_range: range,
+    user: ownershipScoped ? undefined : user,
+  });
   const requestCaptureKey = `${requestInputKey}:${retryCount}`;
   const latestInput = useRef({ query, range, user, purchasedIds, soldIds });
   const request = useRef<{ key: string; body: string } | null>(null);

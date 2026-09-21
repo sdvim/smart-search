@@ -67,7 +67,7 @@ describe("REST search", () => {
       body: JSON.stringify({ query: "Slaking", page: 0, page_size: 2 }),
     });
     const first = await firstResponse.json();
-    expect(first.items.map((item: { id: string }) => item.id)).toEqual(["a", "b"]);
+    expect(first.items.map((item: { id: string }) => item.id)).toEqual(["c", "b"]);
     expect(first.total).toBe(4);
     expect(first.has_more).toBe(true);
     const secondResponse = await fetch(`${baseUrl}/api/search`, {
@@ -75,7 +75,7 @@ describe("REST search", () => {
       body: JSON.stringify({ query: "Slaking", page: 1, page_size: 2 }),
     });
     const second = await secondResponse.json();
-    expect(second.items.map((item: { id: string }) => item.id)).toEqual(["c", "d"]);
+    expect(second.items.map((item: { id: string }) => item.id)).toEqual(["a", "d"]);
     expect(second.total).toBe(4);
     expect(second.has_more).toBe(false);
   });
@@ -165,8 +165,8 @@ describe("REST search", () => {
       body: JSON.stringify({ query: "Slaking", purchased_ids: ["c"] }),
     });
     expect((await all.json()).items.map((item: { id: string }) => item.id)).toEqual([
-      "a",
       "b",
+      "a",
       "c",
       "d",
     ]);
