@@ -45,7 +45,7 @@ const comparisonPattern = new RegExp(
 );
 const aboutPattern = new RegExp(`^(?:about\\s+|~\\s*)(${amount})`, "i");
 
-export function numberValue(value: string) {
+function numberValue(value: string) {
   return Number(value.replace(/[$,]/g, ""));
 }
 
@@ -61,7 +61,7 @@ function inferField(value: string, dictionary: SearchDictionary) {
   return dictionary.fields.find((field) => field.inference === inference);
 }
 
-export function numericToken(
+function numericToken(
   field: SearchField,
   operator: Exclude<QueryToken["operator"], "sort">,
   values: number[],

@@ -12,7 +12,7 @@ type Props = {
   selectedId: string;
   direction: "next" | "previous";
   onNavigate: (direction: "next" | "previous") => void;
-  onClose: () => void;
+  onClose: (restoreFocus?: boolean) => void;
   onBuy: (item: Collectible) => void;
   onSell?: (item: Collectible) => void;
   owns: (item: Collectible) => boolean;
@@ -43,11 +43,13 @@ export function CollectibleDetail({
   const dismissTouch = useRef<{ x: number; y: number } | null>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const suppressNeighborClickUntil = useRef(0);
+  const restoreFocus = useRef(true);
   const position = items.findIndex((item) => item.id === selectedId);
   const item = items[position];
   const hasItem = Boolean(item);
   const previous = items[position - 1];
   const next = items[position + 1];
+  const transitionClass = `detail-card-${direction}`;
 
   useLayoutEffect(() => {
     const element = dialog.current;
@@ -59,10 +61,16 @@ export function CollectibleDetail({
     return () => {
       element.close();
       document.body.style.overflow = overflow;
-      if (opener instanceof HTMLElement && opener.isConnected)
+      if (restoreFocus.current && opener instanceof HTMLElement && opener.isConnected)
         opener.focus({ preventScroll: true });
+      else if (opener instanceof HTMLElement && opener.isConnected) opener.blur();
     };
   }, [hasItem]);
+
+  function close(shouldRestoreFocus = true) {
+    restoreFocus.current = shouldRestoreFocus;
+    onClose(shouldRestoreFocus);
+  }
 
   function navigate(direction: "next" | "previous") {
     startTransition(() => {
@@ -96,7 +104,7 @@ export function CollectibleDetail({
       aria-labelledby="detail-title"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        close(false);
       }}
       onKeyDown={(event) => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
@@ -129,7 +137,7 @@ export function CollectibleDetail({
         const dy = end.clientY - start.y;
         if (dy < 72 || dy < Math.abs(dx) * 1.25) return;
         event.preventDefault();
-        onClose();
+        close();
       }}
     >
       <header className="detail-header">
@@ -137,7 +145,7 @@ export function CollectibleDetail({
           type="button"
           className="detail-close"
           aria-label="Close item details"
-          onClick={onClose}
+          onClick={() => close()}
         >
           <X aria-hidden="true" size={24} />
         </button>
@@ -164,7 +172,7 @@ export function CollectibleDetail({
           const dy = end.clientY - start.y;
           if (dy >= 72 && dy >= Math.abs(dx) * 1.25) {
             event.preventDefault();
-            onClose();
+            close();
             return;
           }
           if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
@@ -191,18 +199,12 @@ export function CollectibleDetail({
                 key={previous.id}
                 item={previous}
                 eager
-                transitionClass={`detail-card-${direction}`}
+                transitionClass={transitionClass}
               />
             </button>
           ) : null}
           <div className="detail-current">
-            <CardImage
-              key={item.id}
-              item={item}
-              eager
-              shared
-              transitionClass={`detail-card-${direction}`}
-            />
+            <CardImage key={item.id} item={item} eager shared transitionClass={transitionClass} />
           </div>
           {next ? (
             <button
@@ -217,12 +219,7 @@ export function CollectibleDetail({
                 navigate("next");
               }}
             >
-              <CardImage
-                key={next.id}
-                item={next}
-                eager
-                transitionClass={`detail-card-${direction}`}
-              />
+              <CardImage key={next.id} item={next} eager transitionClass={transitionClass} />
             </button>
           ) : null}
         </div>

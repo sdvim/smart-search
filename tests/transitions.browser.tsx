@@ -216,7 +216,15 @@ describe("native shared image transitions", () => {
     const button = gridButton(0);
     const initialScroll = window.scrollY;
     const gridBounds = button.querySelector(".card-image")!.getBoundingClientRect();
-    const opening = await imageMorph(0, () => userEvent.click(button));
+    const opening = await imageMorph(0, async () => {
+      await userEvent.click(button);
+      expect(getComputedStyle(container.querySelector(".results")!).visibility).toBe("hidden");
+      expect(getComputedStyle(button.closest(".collectible-card")!).visibility).toBe("hidden");
+      expect(getComputedStyle(button.querySelector(".card-image")!).visibility).toBe("visible");
+      expect(getComputedStyle(button.querySelector(".card-image")!).filter).toBe("none");
+    });
+    expect(container.querySelector(".demo")?.classList.contains("has-detail")).toBe(true);
+    expect(getComputedStyle(container.querySelector(".results")!).visibility).toBe("hidden");
     await expect.poll(() => opening.content).toBeDefined();
     const contentFrames = (opening.content!.effect as KeyframeEffect).getKeyframes();
     expect(contentFrames[0].opacity).toBe("0");
@@ -228,6 +236,9 @@ describe("native shared image transitions", () => {
     expect(large.width).toBeGreaterThan(small.width);
     expect(large.height).toBeGreaterThan(small.height);
     await opening.animation.finished;
+    await expect
+      .poll(() => getComputedStyle(container.querySelector(".detail-current .card-image")!).filter)
+      .toContain("drop-shadow");
     const detailBounds = container
       .querySelector(".detail-current .card-image")!
       .getBoundingClientRect();

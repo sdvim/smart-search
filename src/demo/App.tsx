@@ -56,7 +56,6 @@ export function App() {
   const [value, setValue] = useState<SearchValue>(() =>
     initialQuery ? { ...emptySearch, draft: initialQuery } : emptySearch,
   );
-  const [restoreQuery, setRestoreQuery] = useState(Boolean(initialQuery));
   const account = usePortfolio();
   const { portfolio } = account;
   const [detail, setDetail] = useState<{ id: string; direction: "next" | "previous" } | null>(
@@ -65,6 +64,7 @@ export function App() {
       return id ? { id, direction: "next" } : null;
     },
   );
+  const portfolioQuery = useRef<SearchValue | null>(null);
   const detailId = detail?.id ?? null;
   const [browseContext, setBrowseContext] = useState<{
     user: SearchContext;
@@ -80,20 +80,23 @@ export function App() {
     browseContext
       ? { purchasedIds: browseContext.purchasedIds, soldIds: browseContext.soldIds }
       : { purchasedIds: account.purchasedIds, soldIds: account.soldIds },
+    initialQuery,
   );
   const headerHidden = useScrollHeader(purchaseRevealKey);
+  const demoRef = useRef<HTMLElement>(null);
   const resultsEnd = useRef<HTMLDivElement>(null);
   const returnTarget = useRef<HTMLButtonElement | null>(null);
   const { hasMore, loadMore, loadingMore, loadMoreError } = search;
+  const displayValue = search.value;
 
   useEffect(() => {
-    if (value.draft || value.tokens.length) return;
+    if (displayValue.draft || displayValue.tokens.length) return;
     const timer = window.setInterval(
       () => setPlaceholderIndex((index) => (index + 1) % searchPlaceholders.length),
       searchPlaceholderInterval,
     );
     return () => window.clearInterval(timer);
-  }, [value.draft, value.tokens.length]);
+  }, [displayValue.draft, displayValue.tokens.length]);
 
   useEffect(() => {
     const target = resultsEnd.current;
@@ -117,7 +120,7 @@ export function App() {
   }, [hasMore, loadMore, loadingMore, loadMoreError, detailId]);
 
   const ownershipTokens = search.dictionary
-    ? parseQuery(serializeQuery(value), search.dictionary).tokens.filter(
+    ? parseQuery(serializeQuery(displayValue), search.dictionary).tokens.filter(
         (token) => token.field === "ownership",
       )
     : [];
@@ -176,24 +179,20 @@ export function App() {
     );
   }, [detailId]);
 
-  if (restoreQuery && search.dictionary) {
-    setRestoreQuery(false);
-    setValue({ ...splitDraft(initialQuery, search.dictionary, true), editingId: null });
-  }
-
   function apply(next: SearchValue) {
-    if (committedQuery(next) !== committedQuery(value)) updateQueryParam(committedQuery(next));
-    setRestoreQuery(false);
+    if (committedQuery(next) !== committedQuery(displayValue))
+      updateQueryParam(committedQuery(next));
     setValue(next);
     setBrowseContext(null);
   }
 
   function submit(submittedDraft?: string) {
     if (!search.dictionary) return false;
-    const draft = submittedDraft ?? value.draft;
-    const next = updateDraft(value, draft, search.dictionary, true);
+    const draft = submittedDraft ?? displayValue.draft;
+    const next = updateDraft(displayValue, draft, search.dictionary, true);
     const committed =
-      next.editingId !== value.editingId || next.tokens.length !== value.tokens.length;
+      next.editingId !== displayValue.editingId ||
+      next.tokens.length !== displayValue.tokens.length;
     if (!committed) return false;
     apply(next);
     return true;
@@ -202,14 +201,14 @@ export function App() {
   function togglePortfolio() {
     if (!search.dictionary) return;
     setDetail(null);
-    apply(
-      showingPortfolio
-        ? emptySearch
-        : {
-            ...splitDraft("mine", search.dictionary, true),
-            editingId: null,
-          },
-    );
+    if (showingPortfolio) {
+      const previous = portfolioQuery.current ?? emptySearch;
+      portfolioQuery.current = null;
+      apply(previous);
+    } else {
+      portfolioQuery.current = displayValue;
+      apply({ ...splitDraft("mine", search.dictionary, true), editingId: null });
+    }
     window.scrollTo({ top: 0 });
   }
 
@@ -217,6 +216,11 @@ export function App() {
     const url = new URL(window.location.href);
     url.searchParams.set("detail", item.id);
     window.history.pushState({ detail: item.id }, "", `${url.pathname}${url.search}${url.hash}`);
+    const card = demoRef.current?.querySelector<HTMLElement>(
+      `[data-item-id="${CSS.escape(item.id)}"]`,
+    );
+    demoRef.current?.classList.add("has-detail");
+    card?.classList.add("is-detail-active");
     startTransition(() => {
       setBrowseContext(
         (current) =>
@@ -230,10 +234,14 @@ export function App() {
     });
   }
 
-  function closeDetail() {
-    returnTarget.current = document.querySelector<HTMLButtonElement>(
-      `[data-item-id="${CSS.escape(detailId!)}"] .card-open`,
-    );
+  function closeDetail(restoreFocus = true) {
+    returnTarget.current = restoreFocus
+      ? document.querySelector<HTMLButtonElement>(
+          `[data-item-id="${CSS.escape(detailId!)}"] .card-open`,
+        )
+      : null;
+    if (!restoreFocus && document.activeElement instanceof HTMLElement)
+      document.activeElement.blur();
     const url = new URL(window.location.href);
     url.searchParams.delete("detail");
     window.history.replaceState(
@@ -275,7 +283,7 @@ export function App() {
   }
 
   return (
-    <main className="demo">
+    <main ref={demoRef} className={`demo${detail ? " has-detail" : ""}`}>
       <header className={`demo-header${headerHidden ? " is-hidden" : ""}`}>
         <button
           type="button"
@@ -303,12 +311,12 @@ export function App() {
           </strong>
         </button>
         <SmartSearchBar
-          value={value}
+          value={displayValue}
           onChange={apply}
           suggestion={search.suggestion}
           onAcceptSuggestion={(suggestion) => {
             if (search.dictionary)
-              apply(updateDraft(value, suggestion.text, search.dictionary, true));
+              apply(updateDraft(displayValue, suggestion.text, search.dictionary, true));
           }}
           onSubmit={submit}
           ariaLabel="Search collectibles"

@@ -1,54 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { collectibleFields } from "../src/demo/collectibles.ts";
 import type { Collectible } from "../src/demo/collectibles.ts";
-import { summarizePortfolio } from "../src/demo/portfolio.ts";
 import type { PortfolioSource } from "../src/demo/portfolio.ts";
-import { buildIndex } from "../src/search/index-data.ts";
 import type { SearchIndex } from "../src/search/index-data.ts";
-import { parseActiveQuery } from "../src/search/parse.ts";
-import { filterRecords } from "../src/search/filter.ts";
-import { suggest } from "../src/search/suggest.ts";
-import { rankRecords } from "../src/search/preferences.ts";
 import type { SearchContext } from "../src/search/types.ts";
+import { createSearchService } from "./search-service.ts";
 
 const resultPageSize = 24;
 const maximumPageSize = 100;
 const maximumBodyLength = 65536;
 const apiPaths = new Set(["/api/dictionary", "/api/search", "/api/portfolio"]);
-
-async function readDataFile(name: string) {
-  let lastError: unknown;
-  const locations = [
-    new URL(`../data/${name}`, import.meta.url),
-    pathToFileURL(join(process.cwd(), "data", name)),
-  ];
-  for (const location of locations) {
-    try {
-      return await readFile(location, "utf8");
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError;
-}
-
-export async function loadIndex() {
-  const file = await readDataFile("items.jsonl");
-  return buildIndex(
-    file
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line) as Collectible),
-    collectibleFields,
-  );
-}
-
-export async function loadPortfolio(): Promise<PortfolioSource> {
-  return JSON.parse(await readDataFile("portfolio.json"));
-}
 
 function readContext(value: unknown): SearchContext | null {
   if (value === undefined) return {};
@@ -116,34 +76,14 @@ export function createRequestApi(
   sourceIndex: SearchIndex<Collectible>,
   portfolio?: PortfolioSource,
 ): (request: Request) => Promise<Response> {
-  const owned = new Set(portfolio?.item_ids ?? []);
-  const knownIds = new Set(sourceIndex.records.map((item) => item.id));
-  const index = buildIndex(
-    sourceIndex.records.map((item) => ({
-      ...item,
-      ownership: owned.has(item.id) ? ["mine", "vaulted"] : [],
-    })),
-    sourceIndex.dictionary.fields,
-  );
-  if (!index.dictionary.entries.some((entry) => entry.field === "ownership"))
-    index.dictionary.entries.push(
-      ...["mine", "vaulted"].map((value) => ({
-        field: "ownership",
-        value,
-        normalized: value,
-        count: 0,
-      })),
-    );
+  const service = createSearchService(sourceIndex, portfolio);
   return async (request: Request) => {
     const path = apiPath(new URL(request.url).pathname);
     if (!apiPaths.has(path)) return new Response(null, { status: 404 });
     if (path === "/api/dictionary" && request.method === "GET")
-      return jsonResponse(200, index.dictionary);
+      return jsonResponse(200, service.dictionary);
     if (path === "/api/portfolio" && request.method === "GET")
-      return jsonResponse(200, {
-        ...summarizePortfolio(index.records, portfolio?.item_ids ?? []),
-        items: index.records.filter((item) => owned.has(item.id)),
-      });
+      return jsonResponse(200, service.portfolio);
     if (path !== "/api/search" || request.method !== "POST")
       return jsonResponse(405, { error: "Method not allowed" });
     try {
@@ -168,7 +108,9 @@ export function createRequestApi(
         if (
           !Array.isArray(ids) ||
           ids.length > 500 ||
-          ids.some((id) => typeof id !== "string" || !id || id.length > 100 || !knownIds.has(id)) ||
+          ids.some(
+            (id) => typeof id !== "string" || !id || id.length > 100 || !service.hasKnownId(id),
+          ) ||
           new Set(ids).size !== ids.length
         )
           return jsonResponse(400, {
@@ -198,35 +140,18 @@ export function createRequestApi(
         return jsonResponse(400, {
           error: "page must be nonnegative and page_size must be between 1 and 100",
         });
-      const purchased = new Set<string>(purchasedIds);
-      const sold = new Set<string>(soldIds);
-      const searchIndex =
-        purchased.size || sold.size
-          ? buildIndex(
-              index.records.map((item) =>
-                purchased.has(item.id) || (owned.has(item.id) && !sold.has(item.id))
-                  ? { ...item, ownership: ["mine", "vaulted"] }
-                  : { ...item, ownership: [] },
-              ),
-              index.dictionary.fields,
-            )
-          : index;
-      const parsed = parseActiveQuery(
-        data.query,
-        searchIndex.dictionary,
-        range as [number, number],
+      return jsonResponse(
+        200,
+        service.search({
+          query: data.query,
+          activeRange: range as [number, number],
+          user: context,
+          purchasedIds,
+          soldIds,
+          page,
+          pageSize,
+        }),
       );
-      const matches = rankRecords(searchIndex, filterRecords(searchIndex, parsed), context, parsed);
-      const start = page * pageSize;
-      const items = matches.slice(start, start + pageSize);
-      return jsonResponse(200, {
-        items,
-        total: matches.length,
-        page,
-        page_size: pageSize,
-        has_more: start + items.length < matches.length,
-        suggestion: suggest(searchIndex, data.query, range as [number, number], context),
-      });
     } catch (error) {
       if (error instanceof SyntaxError) return jsonResponse(400, { error: "Invalid JSON" });
       else {

@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
-import { createApi, loadIndex, loadPortfolio } from "./api.ts";
+import { createApi } from "./api.ts";
+import { loadIndex, loadPortfolio } from "./data.ts";
 
 export function searchApi(): Plugin {
   return {

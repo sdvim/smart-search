@@ -16,7 +16,7 @@ export type SearchField = {
   sortAliases?: { asc?: string[]; desc?: string[] };
 };
 
-export type DictionaryEntry = { field: string; value: string; normalized: string; count: number };
+type DictionaryEntry = { field: string; value: string; normalized: string; count: number };
 
 export type SearchDictionary = {
   fields: SearchField[];

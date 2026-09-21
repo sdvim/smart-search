@@ -111,6 +111,33 @@ describe("real search interaction", () => {
     );
   });
 
+  it("restores the query from before the portfolio toggle", async () => {
+    renderApp();
+    await ready();
+    await page.getByRole("button", { name: "Show my portfolio", exact: true }).click();
+    await expect
+      .element(page.getByRole("button", { name: "Edit mine", exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "Show all collectibles", exact: true }).click();
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
+    expect(new URL(window.location.href).searchParams.get("q")).toBeNull();
+
+    await searchbox().fill("Slaking");
+    await userEvent.keyboard(" ");
+    await expect
+      .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "Show my portfolio", exact: true }).click();
+    await expect
+      .element(page.getByRole("button", { name: "Edit mine", exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "Show all collectibles", exact: true }).click();
+    await expect
+      .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
+      .toBeVisible();
+    expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking");
+  });
+
   it("accepts contextual completions, edits chips in place, removes and clears", async () => {
     renderApp();
     await ready();

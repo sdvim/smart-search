@@ -12,7 +12,7 @@ const subjectPatternGlobal = new RegExp(subjectPattern.source, "ig");
 const graderPattern =
   /\b(PSA|CGC|SGC|BGS|AGS|TAG|HGA|CSG|GMA|VGA|ACE|KSA|MNT|Beckett)\s+(\d+(?:\.\d+)?)\b\s*([^)]*)/i;
 
-export function inferProperties(title: string) {
+function inferProperties(title: string) {
   const properties: string[] = [];
   const patterns: [RegExp, string][] = [
     [/reverse holo/i, "reverse holo"],
@@ -94,22 +94,85 @@ export function normalizeRecord(source: SourceRecord): Collectible | null {
   return record;
 }
 
+function normalizeImageKey(imageUrl?: string) {
+  return imageUrl
+    ?.trim()
+    .replace(/\/(?:small|medium|large|thumbnail)\//g, "/")
+    .replace(/[?#].*$/, "");
+}
+
+function certificateKey(record: Collectible) {
+  if (!record.grader_cert_id) return null;
+  return `${record.grader.trim().toUpperCase()}:${record.grader_cert_id.trim().toUpperCase()}`;
+}
+
+function recordQuality(record: Collectible) {
+  return (
+    (record.grader_cert_id ? 100 : 0) +
+    (record.image_url ? 10 : 0) +
+    (record.lqip_base64 ? 4 : 0) +
+    (record.listed_value !== undefined ? 2 : 0) +
+    (record.fair_market_value !== undefined ? 1 : 0) +
+    record.source_urls.length / 1000
+  );
+}
+
+function mergeRecords(first: Collectible, second: Collectible) {
+  const preferred = recordQuality(first) >= recordQuality(second) ? first : second;
+  const other = preferred === first ? second : first;
+  return {
+    ...other,
+    ...preferred,
+    properties: [...new Set([...(other.properties ?? []), ...(preferred.properties ?? [])])],
+    listed_value: preferred.listed_value ?? other.listed_value,
+    fair_market_value: preferred.fair_market_value ?? other.fair_market_value,
+    source_urls: [...new Set([...preferred.source_urls, ...other.source_urls])],
+  };
+}
+
 export function deduplicate(records: Collectible[]) {
-  const unique = new Map<string, Collectible>();
+  const unique: Collectible[] = [];
+  const byId = new Map<string, number>();
+  const byCertificate = new Map<string, number>();
+  const byImage = new Map<string, Set<number>>();
+
   for (const record of records) {
-    const key = record.grader_cert_id
-      ? `${record.grader}:${record.grader_cert_id}`
-      : (record.image_url ?? record.id);
-    const previous = unique.get(key);
-    if (!previous) unique.set(key, record);
-    else
-      unique.set(key, {
-        ...record,
-        ...previous,
-        listed_value: previous.listed_value ?? record.listed_value,
-        fair_market_value: previous.fair_market_value ?? record.fair_market_value,
-        source_urls: [...new Set([...previous.source_urls, ...record.source_urls])],
-      });
+    const imageKey = normalizeImageKey(record.image_url);
+    const certKey = certificateKey(record);
+    const imageMatches = imageKey ? byImage.get(imageKey) : undefined;
+    const imageCandidate = imageMatches?.size === 1 ? [...imageMatches][0] : undefined;
+    const imageMatch =
+      imageCandidate !== undefined &&
+      (!certKey ||
+        !unique[imageCandidate].grader_cert_id ||
+        certificateKey(unique[imageCandidate]) === certKey)
+        ? imageCandidate
+        : undefined;
+    const candidate =
+      (certKey ? byCertificate.get(certKey) : undefined) ??
+      imageMatch ??
+      (!imageKey && !certKey ? byId.get(record.id) : undefined);
+
+    if (candidate === undefined) {
+      const index = unique.push(record) - 1;
+      byId.set(record.id, index);
+      if (certKey) byCertificate.set(certKey, index);
+      if (imageKey) {
+        const matches = byImage.get(imageKey) ?? new Set<number>();
+        matches.add(index);
+        byImage.set(imageKey, matches);
+      }
+      continue;
+    }
+
+    unique[candidate] = mergeRecords(unique[candidate], record);
+    if (certKey) byCertificate.set(certKey, candidate);
+    if (imageKey) {
+      const matches = byImage.get(imageKey) ?? new Set<number>();
+      matches.add(candidate);
+      byImage.set(imageKey, matches);
+    }
   }
-  return [...unique.values()];
+
+  return unique;
 }

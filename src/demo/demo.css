@@ -119,12 +119,22 @@ button {
   outline: none;
 }
 .card-open:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 5px;
-  border-radius: 4px;
-}
-body:has(.collectible-detail[open]) .card-open:focus-visible {
   outline: none;
+}
+.card-open:focus-visible .card-image {
+  filter: drop-shadow(0 0 8px rgb(0 0 0 / 0.28));
+}
+.demo.has-detail .card-open:focus-visible .card-image {
+  filter: none;
+}
+.demo.has-detail .results {
+  visibility: hidden;
+}
+.demo.has-detail .results .collectible-card.is-detail-active {
+  visibility: hidden;
+}
+.demo.has-detail .results .collectible-card.is-detail-active .card-image {
+  visibility: visible;
 }
 .collectible-card.is-detail-active .card-open {
   outline: none;

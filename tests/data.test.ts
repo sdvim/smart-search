@@ -36,6 +36,37 @@ describe("seed data", () => {
     ).toHaveLength(2);
     expect(deduplicate([card("a"), card("c", { listed_value: 20 })])[0].listed_value).toBe(20);
   });
+  it("prefers a certificate-backed listing when its image repeats without a certificate", () => {
+    const rows = deduplicate([
+      card("listing", {
+        grader_cert_id: undefined,
+        image_url: "https://images.example/card/medium/front.jpg",
+        listed_value: 20,
+      }),
+      card("certified", {
+        grader_cert_id: "12345678",
+        image_url: "https://images.example/card/small/front.jpg",
+        fair_market_value: 25,
+      }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("certified");
+    expect(rows[0].grader_cert_id).toBe("12345678");
+    expect(rows[0].listed_value).toBe(20);
+    expect(rows[0].fair_market_value).toBe(25);
+  });
+  it("does not merge different certificates that happen to share an image", () => {
+    expect(
+      deduplicate([
+        card("a", { grader_cert_id: "123", image_url: "https://images.example/front.jpg" }),
+        card("b", { grader_cert_id: "456", image_url: "https://images.example/front.jpg" }),
+        card("listing", {
+          grader_cert_id: undefined,
+          image_url: "https://images.example/front.jpg",
+        }),
+      ]),
+    ).toHaveLength(3);
+  });
   it.each(["Slaking #6 ungraded", "2003 Pokemon Slaking CGC AUTH", "2003 Pokemon Seaking PSA 9"])(
     "excludes %s",
     (title) => {

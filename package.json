@@ -12,10 +12,12 @@
     "lint": "oxlint",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
+    "knip": "knip",
     "test": "vitest run --project unit",
     "test:browser": "vitest run --project browser",
+    "import:marketplace": "tsx scripts/import-marketplace.ts",
     "seed": "tsx scripts/seed.ts",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm test:browser && pnpm build"
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm knip && pnpm test && pnpm test:browser && pnpm build"
   },
   "dependencies": {
     "lucide-react": "1.47.0",
@@ -28,6 +30,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "6.1.1",
     "@vitest/browser-playwright": "5.0.1",
+    "knip": "^6.37.0",
     "oxc-transform-react": "0.145.0",
     "oxfmt": "0.68.0",
     "oxlint": "1.83.0",

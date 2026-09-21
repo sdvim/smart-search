@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { splitDraft } from "../search/parse.ts";
 import { activeRange, serializeQuery } from "../search/types.ts";
 import type {
   SearchContext,
@@ -52,6 +53,7 @@ export function useSearch(
   value: SearchValue,
   user: SearchContext,
   ownership: SearchOwnership | string[] = {},
+  initialQuery = "",
 ) {
   const [dictionary, setDictionary] = useState<SearchDictionary | null>(null);
   const [dictionaryError, setDictionaryError] = useState(false);
@@ -64,8 +66,12 @@ export function useSearch(
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
   const moreRequest = useRef<AbortController | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const query = serializeQuery(value);
-  const range = activeRange(value);
+  const requestValue =
+    initialQuery && value.tokens.length === 0 && value.draft === initialQuery && dictionary
+      ? { ...splitDraft(initialQuery, dictionary, true), editingId: null }
+      : value;
+  const query = serializeQuery(requestValue);
+  const range = activeRange(requestValue);
   const ownershipIds = useMemo(
     () =>
       Array.isArray(ownership)
@@ -74,7 +80,7 @@ export function useSearch(
     [ownership],
   );
   const { purchasedIds, soldIds } = ownershipIds;
-  const ownershipScoped = value.tokens.some((token) => token.field === "ownership");
+  const ownershipScoped = requestValue.tokens.some((token) => token.field === "ownership");
   const requestInputKey = JSON.stringify({
     query,
     active_range: range,
@@ -182,6 +188,7 @@ export function useSearch(
   const current = response?.key === key ? response : null;
   const displayed = response?.data;
   return {
+    value: requestValue,
     dictionary,
     items: displayed?.items ?? [],
     total: displayed?.total ?? 0,

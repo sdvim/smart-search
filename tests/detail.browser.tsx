@@ -91,7 +91,7 @@ async function swipe(dx: number, dy = 0) {
 }
 
 describe("collectible details", () => {
-  it("opens a modal, navigates without wrapping, and restores focus and scrolling on Escape", async () => {
+  it("opens a modal, navigates without wrapping, and blurs the opener on Escape", async () => {
     await openDetail();
     const header = container.querySelector(".detail-header")!;
     expect(header.querySelectorAll("button")).toHaveLength(1);
@@ -116,7 +116,8 @@ describe("collectible details", () => {
     await userEvent.keyboard("{Escape}");
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
     expect(document.body.style.overflow).toBe("");
-    await expect.element(page.getByRole("button", { name: "View First Slaking" })).toHaveFocus();
+    expect(document.activeElement).toBe(document.body);
+    expect(document.activeElement).not.toBe(container.querySelector(".card-open"));
   });
 
   it("accepts horizontal touch swipes without treating vertical scrolling as navigation", async () => {

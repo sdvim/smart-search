@@ -11,6 +11,30 @@ type Props = {
   onSell?: () => void;
 };
 
+type DisabledReasonInput = {
+  owned: boolean;
+  listed: boolean;
+  ready: boolean;
+  hasBuyHandler: boolean;
+  purchaseEnabled: boolean;
+  saleEnabled: boolean;
+};
+
+function disabledReason({
+  owned,
+  listed,
+  ready,
+  hasBuyHandler,
+  purchaseEnabled,
+  saleEnabled,
+}: DisabledReasonInput) {
+  if (owned) return saleEnabled ? undefined : "Selling unavailable";
+  if (!listed) return "Not for sale";
+  if (!ready) return "Waiting for your balance";
+  if (!hasBuyHandler) return "Buying unavailable";
+  return purchaseEnabled ? undefined : "Insufficient balance";
+}
+
 export function BuyButton({ item, owned, balance, ready, onBuy, onSell }: Props) {
   const listed =
     typeof item.listed_value === "number" &&
@@ -29,19 +53,17 @@ export function BuyButton({ item, owned, balance, ready, onBuy, onSell }: Props)
     : estimated
       ? `Est. ${formatMoney(item.fair_market_value!)}`
       : "Value unavailable";
-  const reason = owned
-    ? saleEnabled
+  const reason =
+    owned && saleEnabled
       ? `Sell for ${formatMoney(sale!)}`
-      : "Selling unavailable"
-    : !listed
-      ? "Not for sale"
-      : !ready
-        ? "Waiting for your balance"
-        : !onBuy
-          ? "Buying unavailable"
-          : !purchaseEnabled
-            ? "Insufficient balance"
-            : undefined;
+      : disabledReason({
+          owned,
+          listed,
+          ready,
+          hasBuyHandler: Boolean(onBuy),
+          purchaseEnabled,
+          saleEnabled,
+        });
   return (
     <button
       type="button"

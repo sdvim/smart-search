@@ -135,6 +135,14 @@
     opacity: 0;
   }
 }
+@keyframes detail-image-glow-in {
+  from {
+    filter: none;
+  }
+  to {
+    filter: drop-shadow(0 0 8px rgb(0 0 0 / 0.28));
+  }
+}
 @keyframes detail-content-enter-up {
   from {
     opacity: 0;
@@ -253,6 +261,9 @@
   height: var(--detail-image-height);
   max-width: none;
   margin: 0;
+}
+.detail-current .card-image {
+  animation: detail-image-glow-in 180ms var(--detail-ease-out) 300ms both;
 }
 .detail-gallery img {
   -webkit-user-drag: none;

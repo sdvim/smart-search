@@ -189,6 +189,11 @@ describe("session commerce", () => {
     );
     await showTop();
     await page.getByRole("button", { name: "Show all collectibles", exact: true }).click();
+    expect(new URL(window.location.href).searchParams.get("q")).toBe(query);
+    await expect
+      .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
+      .toBeVisible();
+    await page.getByRole("button", { name: "Clear search" }).click();
     expect(new URL(window.location.href).searchParams.get("q")).toBeNull();
     expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
     await amounts(balance, total);

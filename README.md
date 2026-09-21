@@ -20,7 +20,7 @@ pnpm exec playwright install chromium
 pnpm check
 ```
 
-`check` runs TypeScript, Oxlint, Oxfmt, unit/API tests, real-browser interaction tests, and a production build. Individual commands are `typecheck`, `lint`, `format:check`, `test`, `test:browser`, and `build`. Use `pnpm format` to format files. `pnpm preview` serves the built page with the same local REST API.
+`check` runs TypeScript, Oxlint, Oxfmt, Knip, unit/API tests, real-browser interaction tests, and a production build. Individual commands are `typecheck`, `lint`, `format:check`, `knip`, `test`, `test:browser`, and `build`. Use `pnpm format` to format files. `pnpm preview` serves the built page with the same local REST API.
 
 Vite uses Oxc transforms and `@vitejs/plugin-react` with React Compiler enabled through `oxc-transform-react`. Compiler diagnostics are logged in development, tests, and builds so skipped optimizations remain visible. Components and hooks rely on automatic memoization; correctness does not depend on cached function identities. There is no Babel pipeline, CSS framework, router, or global state library.
 
@@ -43,7 +43,7 @@ Buy deducts the listed price from the local balance and adds the item to the por
 
 Purchases live only in React state. Clearing a query keeps them; refreshing the page resets them. No purchases, balances, or account data are written to a backend or storage. The mock search endpoint receives only the IDs of simulated purchases to include them in `mine` and `vaulted` for that request, without affecting other sessions.
 
-Tap Portfolio in the results header to replace the query with `mine`. Tap it while an ownership filter is active to clear the query.
+Tap Portfolio in the results header to replace the query with `mine`; tapping it again restores the query that was active before the toggle, including an empty query.
 
 Tap a card image for a full-screen detail view with its set, year, grade, certificate, properties, and value. The overlay header shows only Close. Its item counter uses the full query result count, not just the loaded page. Left/right arrow keys, Previous/Next, neighboring card edges, and horizontal mobile swipes navigate without wrapping; a deliberate downward mobile swipe dismisses the detail view. More results load near the end of the current page. Detail URLs retain the search in `q` and the selected item in `detail`, so refresh and browser back/forward restore the overlay state. The navigation order stays stable while buying inside details and returning to results; editing the query refreshes personalization.
 
@@ -154,7 +154,7 @@ The site does not persist purchases between visitors. Buy and sell actions remai
 
 The initial snapshot was captured on September 20, 2026 from [Courtyard's Slaking collection](https://courtyard.io/user/slaking/collection), [Fanatics Collect's Slaking marketplace](https://www.fanaticscollect.com/marketplace?type=FIXED&q=slaking&itemsPerPage=48), [Fanatics Collect's Pikachu marketplace](https://www.fanaticscollect.com/marketplace?type=FIXED&q=pikachu&itemsPerPage=48), and [Fanatics Collect's Alakazam marketplace](https://www.fanaticscollect.com/marketplace?type=FIXED&q=alakazam&itemsPerPage=48). Each record retains its public source URL. `data/source.jsonl` contains only the collectible fields needed for this exercise, not marketplace credentials or owner profiles.
 
-There are 2,933 source candidates and 2,794 normalized graded slabs: 67 from Courtyard, 2,726 from Fanatics, and the PSA-verified Alt holding above. Normalization excludes Seaking, raw cards, records without a year, authentication-only records without a numeric grade, and marketplace titles that mention a target Pokémon only as a set name. Deduplication uses grader plus certificate, falling back to image URL or source ID. Different certificates remain different collectible items even when their card titles match.
+There are 2,896 source candidates and 2,757 normalized graded slabs: 30 with Courtyard source URLs, 2,726 from Fanatics, and the PSA-verified Alt holding above. The source snapshot has already removed 37 exact-image overlaps, retaining their URLs and values on the certificate-backed records. Normalization excludes Seaking, raw cards, records without a year, authentication-only records without a numeric grade, and marketplace titles that mention a target Pokémon only as a set name. Deduplication uses grader plus certificate, then a canonicalized image URL that collapses size variants, and finally source ID when no stronger identity is available. When a certified and uncertified listing share an image, the certified record wins and source URLs and values are merged. Different certificates, or different images without stronger identity evidence, remain separate collectible items even when their card titles match.
 
 Values are a frozen demo snapshot, not current market quotes. Set names, properties, language, and grade labels are best-effort source/title inference, not a catalog authority. Remote images remain hosted by their respective providers and may later disappear.
 
@@ -162,7 +162,7 @@ Values are a frozen demo snapshot, not current market quotes. Set names, propert
 pnpm seed
 ```
 
-This rebuilds `data/items.jsonl` from the checked-in source snapshot. It does not crawl the marketplaces again. `scripts/lqip.ts` downloads each available image, preserves aspect ratio within 18×18 pixels, encodes WebP at quality 50, and stores its base64 bytes in JSONL. Images are processed six at a time with a 15-second timeout. Failures are reported and fall back to the generic slab SVG; image processing never runs in the search request path. 2,792 of the 2,794 records have generated LQIPs; the two records without images use the generic placeholder.
+This rebuilds `data/items.jsonl` from the checked-in source snapshot. It does not crawl the marketplaces again. `scripts/lqip.ts` downloads each available image, preserves aspect ratio within 18×18 pixels, encodes WebP at quality 50, and stores its base64 bytes in JSONL. Images are processed six at a time with a 15-second timeout. Failures are reported and fall back to the generic slab SVG; image processing never runs in the search request path. 2,755 of the 2,757 records have generated LQIPs; the two records without images use the generic placeholder.
 
 ## Verification scope
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadIndex, loadPortfolio } from "../server/api.ts";
+import { loadIndex, loadPortfolio } from "../server/data.ts";
 import { summarizePortfolio } from "../src/demo/portfolio.ts";
 import { card } from "./fixtures.ts";
 

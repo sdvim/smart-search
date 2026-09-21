@@ -12,7 +12,7 @@ export function remainingBalance(purchases: readonly Collectible[]) {
   return (Math.round(demoUser.wallet_balance * 100) - spent) / 100;
 }
 
-export function marketValue(item: Collectible) {
+function marketValue(item: Collectible) {
   const value = [item.fair_market_value, item.listed_value].find(
     (candidate) => typeof candidate === "number" && Number.isFinite(candidate) && candidate >= 0,
   );
