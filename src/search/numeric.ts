@@ -30,8 +30,9 @@ const operators = {
 } as const;
 const suffixes = { "+": "gte", "<": "gt", ">": "lt", "<=": "gte", ">=": "lte" } as const;
 const comparisonWords = Object.keys(operators).filter((operator) => /^[a-z]/.test(operator));
-export const numericKeywords = [...comparisonWords, "from", "between", "about", "~"];
-export const comparisonSource = comparisonWords
+const approximateWords = ["about", "around"];
+export const numericKeywords = [...comparisonWords, "from", "between", ...approximateWords, "~"];
+export const comparisonSource = [...comparisonWords, ...approximateWords]
   .map((operator) => operator.replaceAll(" ", String.raw`\s+`))
   .join("|");
 const amount = String.raw`\$?\d+(?:,\d{3})*(?:\.\d+)?`;
@@ -43,7 +44,7 @@ const comparisonPattern = new RegExp(
   `^(${comparisonSource}|>=|<=|>|<|=)?\\s*(${amount})(\\+|<=|>=|<|>)?(?![\\d.])`,
   "i",
 );
-const aboutPattern = new RegExp(`^(?:about\\s+|~\\s*)(${amount})`, "i");
+const aboutPattern = new RegExp(`^(?:(?:about|around)\\s+|~\\s*)(${amount})`, "i");
 
 function numberValue(value: string) {
   return Number(value.replace(/[$,]/g, ""));
@@ -120,8 +121,9 @@ export function readNumber(input: string, dictionary: SearchDictionary, explicit
     const field = explicit ?? inferField(about[1], dictionary);
     if (!field) return null;
     const center = numberValue(about[1]);
-    const lower = Number((center * 0.9).toFixed(10));
-    const upper = Number((center * 1.1).toFixed(10));
+    const distance = field.inference === "year" || field.inference === "grade" ? 1 : center * 0.1;
+    const lower = Number((center - distance).toFixed(10));
+    const upper = Number((center + distance).toFixed(10));
     return {
       length: about[0].length,
       token: numericToken(field, "range", [lower, upper], about[0], undefined, center),

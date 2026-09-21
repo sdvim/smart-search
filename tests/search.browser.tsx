@@ -122,7 +122,7 @@ describe("real search interaction", () => {
     expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
     expect(new URL(window.location.href).searchParams.get("q")).toBeNull();
 
-    await searchbox().fill("Slaking");
+    await searchbox().fill("Slaking under $100");
     await userEvent.keyboard(" ");
     await expect
       .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
@@ -135,7 +135,10 @@ describe("real search interaction", () => {
     await expect
       .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
       .toBeVisible();
-    expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking");
+    await expect
+      .element(page.getByRole("button", { name: "Edit under $100", exact: true }))
+      .toBeVisible();
+    expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking under $100");
   });
 
   it("accepts contextual completions, edits chips in place, removes and clears", async () => {
@@ -220,7 +223,7 @@ describe("real search interaction", () => {
     await expect.element(searchbox()).toHaveFocus();
   });
 
-  it("preserves every typed character after Space commits a known prefix", async () => {
+  it("keeps family subjects editable until a following query starts", async () => {
     renderApp();
     await ready();
     await searchbox().click();
@@ -231,10 +234,17 @@ describe("real search interaction", () => {
     await expect.element(searchbox()).toHaveValue("slaking");
     await searchbox().fill("slaking");
     await userEvent.keyboard(" ");
-    await expect.element(searchbox()).toHaveValue("");
-    await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
-    let suffix = "";
-    for (const character of ["u", "m", "l", "r"]) {
+    await expect.element(searchbox()).toHaveValue("slaking ");
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(1);
+    await userEvent.keyboard("ex");
+    await expect.element(searchbox()).toHaveValue("slaking ex");
+    await userEvent.keyboard(" ");
+    await expect.element(searchbox()).toHaveValue("slaking ex ");
+    await userEvent.keyboard("be");
+    await expect.element(page.getByRole("button", { name: "Edit Slaking ex" })).toBeVisible();
+    await expect.element(searchbox()).toHaveValue("be");
+    let suffix = "be";
+    for (const character of ["f", "o", "r", "e"]) {
       suffix += character;
       await userEvent.keyboard(character);
       await expect.element(searchbox()).toHaveValue(suffix);
@@ -313,15 +323,15 @@ describe("real search interaction", () => {
   it("keeps the same input and accepts keyboard-free Space after editing a chip", async () => {
     renderApp();
     await ready();
-    await searchbox().fill("Slaking");
+    await searchbox().fill("Slaking under $100");
     const input = container.querySelector<HTMLInputElement>("input")!;
     await cdp().send("Input.insertText", { text: " " });
-    await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "Edit under $100" })).toBeVisible();
     await userEvent.keyboard("{Backspace}");
-    await expect.element(searchbox()).toHaveValue("Slaking");
+    await expect.element(searchbox()).toHaveValue("under $100");
     expect(container.querySelector("input")).toBe(input);
     await cdp().send("Input.insertText", { text: " " });
-    await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
+    await expect.element(page.getByRole("button", { name: "Edit under $100" })).toBeVisible();
     expect(container.querySelector("input")).toBe(input);
     await expect.element(searchbox()).toHaveFocus();
   });
@@ -344,9 +354,7 @@ describe("real search interaction", () => {
   it("syncs committed chips and waits through chip edits", async () => {
     renderApp();
     await ready();
-    await searchbox().fill("Slaking");
-    await userEvent.keyboard(" ");
-    await searchbox().fill("under $100");
+    await searchbox().fill("Slaking under $100");
     await userEvent.keyboard(" ");
     await expect
       .poll(() => new URL(window.location.href).searchParams.get("q"))

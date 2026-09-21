@@ -52,6 +52,10 @@ describe("contextual suggestions", () => {
     expect(completion?.token.field).toBe("year");
     expect(completion?.text).toMatch(new RegExp(`^${query.trim()} \\d{4}$`));
   });
+  it.each(["about grade ", "around year "])("supports approximate field prefixes: %s", (query) => {
+    const completion = suggest(index, query, [0, query.length]);
+    expect(completion?.text.startsWith(query)).toBe(true);
+  });
   it.each(["at least grade ", "at least year "])(
     "completes natural comparisons with explicit fields: %s",
     (query) => {

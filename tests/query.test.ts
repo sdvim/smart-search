@@ -53,7 +53,13 @@ describe("numeric grammar", () => {
     ["$100<", "price", "gt", [100]],
     ["$100+", "price", "gte", [100]],
     ["~$100", "price", "range", [90, 110]],
-    ["about 9", "grade", "range", [8.1, 9.9]],
+    ["about 9", "grade", "range", [8, 10]],
+    ["around 9", "grade", "range", [8, 10]],
+    ["about 2000", "year", "range", [1999, 2001]],
+    ["around 2000", "year", "range", [1999, 2001]],
+    ["around year 2000", "year", "range", [1999, 2001]],
+    ["~2000", "year", "range", [1999, 2001]],
+    ["around grade 9", "grade", "range", [8, 10]],
     ["9", "grade", "eq", [9]],
     ["9.5", "grade", "eq", [9.5]],
     ["14.50", "price", "eq", [14.5]],
@@ -251,6 +257,21 @@ describe("identifiers, context and drafts", () => {
       draft: "under $100",
     });
     expect(splitDraft("between $100 and", index.dictionary).tokens).toHaveLength(0);
+  });
+  it("keeps family subjects editable through Space until a new query starts", () => {
+    for (const draft of ["Slaking", "Slaking ", "Slaking e", "Slaking ex", "Slaking ex "]) {
+      expect(updateDraft(emptySearch, draft, index.dictionary, "space")).toMatchObject({
+        tokens: [],
+        draft,
+      });
+    }
+    expect(splitDraft("Slaking ex before", index.dictionary)).toMatchObject({
+      tokens: [{ field: "subject", values: ["Slaking ex"] }],
+      draft: "before",
+    });
+    expect(updateDraft(emptySearch, "under $100", index.dictionary, "space").tokens).toEqual([
+      expect.objectContaining({ field: "price", values: [100] }),
+    ]);
   });
   it("edits in place without changing the surrounding query or range order", () => {
     const original = updateDraft(emptySearch, "2010-2000 grade 9+", index.dictionary, true);
@@ -459,6 +480,11 @@ describe("sorting and ownership keywords", () => {
     expect(parseQuery("~$100.00", index.dictionary).tokens[0]).toMatchObject({
       label: "about $100.00",
       compactLabel: "~$100.00",
+      values: [90, 110],
+    });
+    expect(parseQuery("around $100", index.dictionary).tokens[0]).toMatchObject({
+      label: "about $100",
+      compactLabel: "~$100",
       values: [90, 110],
     });
   });

@@ -9,10 +9,10 @@ import "./smart-search.css";
 
 export type SmartSearchBarProps = {
   value: SearchValue;
-  onChange: (value: SearchValue, isComposing?: boolean) => void;
+  onChange: (value: SearchValue, isComposing?: boolean, atEnd?: boolean) => void;
   suggestion: SearchSuggestion | null;
   onAcceptSuggestion: (suggestion: SearchSuggestion) => void;
-  onSubmit: (draft?: string) => boolean | void;
+  onSubmit: (draft?: string, mode?: "space") => boolean | void;
   ariaLabel?: string;
   placeholder?: string;
 };
@@ -109,7 +109,7 @@ export function SmartSearchBar({
     )
       setAllSelected(false);
     if (isSpace && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && atEnd) {
-      if (onSubmit(value.draft)) event.preventDefault();
+      if (onSubmit(value.draft, "space")) event.preventDefault();
       return;
     }
     if (
@@ -264,10 +264,10 @@ export function SmartSearchBar({
               nativeEvent.data !== null &&
               /^\s$/.test(nativeEvent.data) &&
               draft.endsWith(nativeEvent.data) &&
-              onSubmit(draft.slice(0, -nativeEvent.data.length))
+              onSubmit(draft.slice(0, -nativeEvent.data.length), "space")
             )
               return;
-            onChange({ ...value, draft }, isComposing);
+            onChange({ ...value, draft }, isComposing, !isComposing && atEnd);
           }}
           onSelect={(event) => {
             const selection = selectionOf(event.currentTarget);
@@ -294,8 +294,10 @@ export function SmartSearchBar({
           onCompositionEnd={(event) => {
             composing.current = false;
             const selection = selectionOf(event.currentTarget);
-            setAtEnd(selection.start === selection.length && selection.end === selection.length);
-            onChange({ ...value, draft: event.currentTarget.value });
+            const atEnd =
+              selection.start === selection.length && selection.end === selection.length;
+            setAtEnd(atEnd);
+            onChange({ ...value, draft: event.currentTarget.value }, false, atEnd);
           }}
         />
       </span>

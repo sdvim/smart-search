@@ -90,7 +90,7 @@ To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to 
 | Price                | `$100`, `price:100`, `under $100`, `below $100`, `above $100`, `between $100 and $1000`, `$100-$1000`                |
 | Inclusive comparison | `at least $100`, `no less than $100`, `>=$100`, `$100+`, `at most $100`, `no more than $100`, `up to $100`, `<=$100` |
 | Exclusive comparison | `more than $100`, `greater than $100`, `>$100`, `less than $100`, `fewer than $100`, `<$100`                         |
-| Approximate value    | `about $100`, `~$100`                                                                                                |
+| Approximate value    | `about $100`, `around $100`, `~$100`                                                                                 |
 | Grade                | `9`, `9.5`, `grade 9+`, `g:8.5-10`                                                                                   |
 | Language             | `japanese`, `jp`, `language:japanese`, `english`, `en`                                                               |
 | Set, property        | `in Deoxys`, `set:Deoxys`, `is reverse holo`, `is:reverse holo`                                                      |

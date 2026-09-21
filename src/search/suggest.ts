@@ -68,7 +68,9 @@ export function suggest<T extends SearchRecord>(
             addCandidate(text, field.priority * 100 + (value === wallet ? -50 : 0) + position);
           addCandidate(`at least price $${value}`, field.priority * 100 + 4);
           addCandidate(`about $${value}`, field.priority * 100 + 5);
-          addCandidate(`about ${value}`, field.priority * 100 + 6);
+          addCandidate(`around $${value}`, field.priority * 100 + 6);
+          addCandidate(`about ${value}`, field.priority * 100 + 7);
+          addCandidate(`around ${value}`, field.priority * 100 + 8);
         }
       } else if (field.inference === "grade") {
         const personalized = values.some((value) => preferenceScore(field, value, context) > 0);
@@ -88,7 +90,9 @@ export function suggest<T extends SearchRecord>(
             field.priority * 100 + (personalized ? gradeRank : 0) + 4,
           );
           addCandidate(`about grade ${value}`, field.priority * 100 + gradeRank + 5);
-          addCandidate(`about ${value}`, field.priority * 100 + gradeRank + 6);
+          addCandidate(`around grade ${value}`, field.priority * 100 + gradeRank + 6);
+          addCandidate(`about ${value}`, field.priority * 100 + gradeRank + 7);
+          addCandidate(`around ${value}`, field.priority * 100 + gradeRank + 8);
         }
       } else if (field.inference === "year") {
         for (const value of [...new Set(values.map((value) => Math.ceil((value + 1) / 10) * 10))]) {
@@ -100,14 +104,16 @@ export function suggest<T extends SearchRecord>(
             addCandidate(text, field.priority * 100 + position);
           addCandidate(`at least year ${value}`, field.priority * 100 + 3);
           addCandidate(`about year ${value}`, field.priority * 100 + 4);
-          addCandidate(`about ${value}`, field.priority * 100 + 5);
+          addCandidate(`around year ${value}`, field.priority * 100 + 5);
+          addCandidate(`about ${value}`, field.priority * 100 + 6);
+          addCandidate(`around ${value}`, field.priority * 100 + 7);
         }
       } else {
         for (const value of values)
           addCandidate(`${field.aliases[0] ?? field.key}:${value}`, field.priority * 100);
       }
       const operator = typed.match(
-        /^(.*?(?:[:<>=$~]|\b(?:about|before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
+        /^(.*?(?:[:<>=$~]|\b(?:about|around|before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
       )?.[1];
       if (operator) {
         const separator = /[\s:<>=$~]$/.test(operator) ? "" : " ";

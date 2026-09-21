@@ -46,7 +46,7 @@ const searchPlaceholders = [
   "Slaking under $100 grade 9+",
   "Pikachu before 2010 reverse holo",
   "Alakazam in Base Set",
-  "listed Slaking low to high",
+  "cheapest listed Slaking",
   "Pikachu for sale high to low",
 ] as const;
 const searchPlaceholderInterval = 2800;
@@ -179,17 +179,26 @@ export function App() {
     );
   }, [detailId]);
 
-  function apply(next: SearchValue) {
-    if (committedQuery(next) !== committedQuery(displayValue))
-      updateQueryParam(committedQuery(next));
-    setValue(next);
+  function apply(next: SearchValue, isComposing = false, atEnd = false) {
+    const resolved =
+      !isComposing && atEnd && search.dictionary && !next.editingId
+        ? updateDraft(next, next.draft, search.dictionary)
+        : next;
+    if (committedQuery(resolved) !== committedQuery(displayValue))
+      updateQueryParam(committedQuery(resolved));
+    setValue(resolved);
     setBrowseContext(null);
   }
 
-  function submit(submittedDraft?: string) {
+  function submit(submittedDraft?: string, mode?: "space") {
     if (!search.dictionary) return false;
     const draft = submittedDraft ?? displayValue.draft;
-    const next = updateDraft(displayValue, draft, search.dictionary, true);
+    const next = updateDraft(
+      displayValue,
+      draft,
+      search.dictionary,
+      mode === "space" ? "space" : true,
+    );
     const committed =
       next.editingId !== displayValue.editingId ||
       next.tokens.length !== displayValue.tokens.length;

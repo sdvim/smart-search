@@ -1,4 +1,5 @@
 import { splitDraft } from "./parse.ts";
+import type { DraftCommitMode } from "./parse.ts";
 import type { SearchDictionary, SearchValue } from "./types.ts";
 
 function tokenId() {
@@ -12,7 +13,7 @@ export function updateDraft(
   value: SearchValue,
   draft: string,
   dictionary: SearchDictionary,
-  commit = false,
+  commit: DraftCommitMode = false,
 ): SearchValue {
   if (value.editingId && !commit) return { ...value, draft };
   const next = splitDraft(draft, dictionary, commit);

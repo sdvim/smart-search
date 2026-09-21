@@ -215,22 +215,45 @@ export function parseActiveQuery(
   };
 }
 
-export function splitDraft(draft: string, dictionary: SearchDictionary, commit = false) {
+export type DraftCommitMode = boolean | "space";
+
+function hasCategoricalContinuation(token: QueryToken, dictionary: SearchDictionary): boolean {
+  const field = dictionary.fields.find((field) => field.key === token.field);
+  if (!field || field.kind !== "category" || token.operator !== "eq") return false;
+  if (field.match === "family") return true;
+  const value = normalize(String(token.values[0] ?? ""));
+  return dictionary.entries.some(
+    (entry) =>
+      entry.field === token.field &&
+      entry.normalized !== value &&
+      entry.normalized.startsWith(`${value} `),
+  );
+}
+
+export function splitDraft(
+  draft: string,
+  dictionary: SearchDictionary,
+  commit: DraftCommitMode = false,
+) {
   const parsed = parseQuery(draft, dictionary);
+  const deferCommit = commit === false || commit === "space";
   if (
-    !commit &&
+    deferCommit &&
     dictionary.entries.some(
       (entry) =>
         entry.normalized.startsWith(`${normalize(draft)}`) && entry.normalized !== normalize(draft),
     )
   )
     return { tokens: [], draft };
-  if (!commit && parsed.draft && parsed.tokens.length) {
+  if (deferCommit && parsed.draft && parsed.tokens.length) {
     const continuation = parseQuery(parsed.draft, dictionary);
     if (!continuation.tokens.length && !continuation.pending) return { tokens: [], draft };
   }
-  if (!commit && !parsed.draft && parsed.tokens.length) {
+  if (deferCommit && !parsed.draft && parsed.tokens.length) {
     const last = parsed.tokens.at(-1)!;
+    if (commit === "space" && hasCategoricalContinuation(last, dictionary))
+      return { tokens: [], draft };
+    if (commit === "space") return { tokens: parsed.tokens, draft: "" };
     return {
       tokens: parsed.tokens.slice(0, -1),
       draft: last.text + (/\s$/.test(draft) ? " " : ""),
