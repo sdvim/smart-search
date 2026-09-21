@@ -218,7 +218,7 @@ describe("native shared image transitions", () => {
     await expect.poll(() => opening.content).toBeDefined();
     const contentFrames = (opening.content!.effect as KeyframeEffect).getKeyframes();
     expect(contentFrames[0].opacity).toBe("0");
-    expect(contentFrames[0].transform).toBe("translateY(100%)");
+    expect(contentFrames[0].transform).toBe("translateY(24px)");
     expect(contentFrames.at(-1)!.opacity).toBe("1");
     const [small, large] = dimensions(opening.frames);
     expect(small.width).toBeCloseTo(gridBounds.width, 0);
@@ -236,7 +236,8 @@ describe("native shared image transitions", () => {
     await expect.poll(() => closing.content).toBeDefined();
     const closingContentFrames = (closing.content!.effect as KeyframeEffect).getKeyframes();
     expect(closingContentFrames.at(-1)!.opacity).toBe("0");
-    expect(closingContentFrames.at(-1)!.transform).toBe("translateY(100%)");
+    expect(closingContentFrames.at(-1)!.transform).toBe("translateY(24px)");
+    expect(Number(closing.content!.effect!.getTiming().duration)).toBeLessThan(200);
     const [from, to] = dimensions(closing.frames);
     expect(from.width).toBeCloseTo(large.width, 0);
     expect(to.width).toBeCloseTo(small.width, 0);

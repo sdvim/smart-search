@@ -95,7 +95,9 @@ describe("real search interaction", () => {
   it("cycles through broad-to-specific empty search examples", async () => {
     renderApp();
     await ready();
-    expect(container.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Slaking");
+    expect(container.querySelector<HTMLInputElement>("input")?.placeholder).toBe(
+      "Slaking grade 9+ listed",
+    );
     expect(getComputedStyle(container.querySelector(".search-placeholder")!).animationName).toBe(
       "search-placeholder-enter",
     );

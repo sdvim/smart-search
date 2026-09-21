@@ -78,14 +78,14 @@
   animation-timing-function: var(--detail-ease-in-out);
 }
 ::view-transition-old(detail-information) {
-  animation-duration: 320ms;
+  animation-duration: 180ms;
   animation-timing-function: var(--detail-ease-in);
   animation-fill-mode: both;
   transform-origin: center;
   background: transparent;
 }
 ::view-transition-new(detail-information) {
-  animation-duration: 320ms;
+  animation-duration: 260ms;
   animation-timing-function: var(--detail-ease-out);
   animation-fill-mode: both;
   transform-origin: center;
@@ -144,13 +144,17 @@
 @keyframes detail-content-enter-up {
   from {
     opacity: 0;
-    transform: translateY(100%);
+    transform: translateY(24px);
   }
 }
 @keyframes detail-content-exit-down {
+  18% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
   to {
     opacity: 0;
-    transform: translateY(100%);
+    transform: translateY(24px);
   }
 }
 @keyframes detail-content-enter-right {
