@@ -41,13 +41,13 @@ function updateQueryParam(query: string) {
 
 const searchPlaceholders = [
   "Slaking",
-  "Pikachu",
-  "under $100",
-  "grade 9+",
-  "before 2010",
-  "reverse holo",
-  "in Base Set",
-  "cert:6018503138",
+  "Pikachu between $100 and $300",
+  "Alakazam 1996-2000 jp",
+  "Slaking under $100 grade 9+",
+  "Pikachu before 2010 reverse holo",
+  "Alakazam in Base Set",
+  "listed Slaking low to high",
+  "mine <$100 9+",
 ] as const;
 const searchPlaceholderInterval = 2800;
 

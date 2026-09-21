@@ -42,6 +42,7 @@ export function CollectibleDetail({
   const dialog = useRef<HTMLDialogElement>(null);
   const dismissTouch = useRef<{ x: number; y: number } | null>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  const suppressNeighborClickUntil = useRef(0);
   const position = items.findIndex((item) => item.id === selectedId);
   const item = items[position];
   const hasItem = Boolean(item);
@@ -168,6 +169,7 @@ export function CollectibleDetail({
           }
           if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
           event.preventDefault();
+          suppressNeighborClickUntil.current = Date.now() + 500;
           navigate(dx > 0 ? "previous" : "next");
         }}
       >
@@ -185,7 +187,13 @@ export function CollectibleDetail({
                 type="button"
                 className="detail-neighbor detail-previous"
                 aria-label="View previous item"
-                onClick={() => navigate("previous")}
+                onClick={() => {
+                  if (Date.now() < suppressNeighborClickUntil.current) {
+                    suppressNeighborClickUntil.current = 0;
+                    return;
+                  }
+                  navigate("previous");
+                }}
               >
                 <CardImage key={previous.id} item={previous} eager />
               </button>
@@ -198,7 +206,13 @@ export function CollectibleDetail({
                 type="button"
                 className="detail-neighbor detail-next"
                 aria-label="View next item"
-                onClick={() => navigate("next")}
+                onClick={() => {
+                  if (Date.now() < suppressNeighborClickUntil.current) {
+                    suppressNeighborClickUntil.current = 0;
+                    return;
+                  }
+                  navigate("next");
+                }}
               >
                 <CardImage key={next.id} item={next} eager />
               </button>
@@ -206,40 +220,54 @@ export function CollectibleDetail({
           </div>
         </ViewTransition>
       </div>
-      <section className="detail-information">
-        <nav className="detail-navigation" aria-label="Browse items">
-          <button type="button" disabled={!previous} onClick={() => navigate("previous")}>
-            Previous
-          </button>
-          <span>
-            {position + 1} / {total}
-          </span>
-          <button
-            type="button"
-            disabled={!next && !(loadMoreError && onLoadMore)}
-            onClick={() => (next ? navigate("next") : onLoadMore?.())}
-          >
-            {!next && loadMoreError ? "Retry loading" : !next && loadingMore ? "Loading…" : "Next"}
-          </button>
-        </nav>
-        <h1 id="detail-title">{item.title}</h1>
-        <BuyButton
-          item={item}
-          owned={owns(item)}
-          balance={balance}
-          ready={ready}
-          onBuy={() => onBuy(item)}
-          onSell={onSell ? () => onSell(item) : undefined}
-        />
-        <dl className="detail-metadata">
-          {metadata.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      <ViewTransition
+        name="detail-information"
+        share={{ "detail-navigation": "none", default: "detail-content-morph" }}
+        update={{
+          "detail-navigation": `detail-content-${direction}`,
+          default: "none",
+        }}
+        default="none"
+      >
+        <section className="detail-information">
+          <nav className="detail-navigation" aria-label="Browse items">
+            <button type="button" disabled={!previous} onClick={() => navigate("previous")}>
+              Previous
+            </button>
+            <span>
+              {position + 1} / {total}
+            </span>
+            <button
+              type="button"
+              disabled={!next && !(loadMoreError && onLoadMore)}
+              onClick={() => (next ? navigate("next") : onLoadMore?.())}
+            >
+              {!next && loadMoreError
+                ? "Retry loading"
+                : !next && loadingMore
+                  ? "Loading…"
+                  : "Next"}
+            </button>
+          </nav>
+          <h1 id="detail-title">{item.title}</h1>
+          <BuyButton
+            item={item}
+            owned={owns(item)}
+            balance={balance}
+            ready={ready}
+            onBuy={() => onBuy(item)}
+            onSell={onSell ? () => onSell(item) : undefined}
+          />
+          <dl className="detail-metadata">
+            {metadata.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </ViewTransition>
     </dialog>
   );
 }

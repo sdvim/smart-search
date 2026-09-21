@@ -1,3 +1,8 @@
+:root {
+  --detail-ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --detail-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --detail-ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+}
 .collectible-detail {
   position: fixed;
   inset: 0;
@@ -39,7 +44,11 @@
 }
 ::view-transition-group(.card-image-morph) {
   animation-duration: 300ms;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-timing-function: var(--detail-ease-in-out);
+}
+::view-transition-group(detail-gallery) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--detail-ease-in-out);
 }
 ::view-transition-old(.card-image-morph),
 ::view-transition-new(.card-image-morph) {
@@ -49,32 +58,56 @@
   background: transparent;
 }
 ::view-transition-old(.detail-next),
+::view-transition-old(.detail-previous) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--detail-ease-in);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
+  background: transparent;
+}
 ::view-transition-new(.detail-next),
-::view-transition-old(.detail-previous),
 ::view-transition-new(.detail-previous) {
   animation-duration: 280ms;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-timing-function: var(--detail-ease-out);
   animation-fill-mode: both;
   mix-blend-mode: normal;
   background: transparent;
 }
 ::view-transition-group(detail-information) {
   animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-timing-function: var(--detail-ease-in-out);
 }
-::view-transition-old(detail-information),
+::view-transition-old(detail-information) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--detail-ease-in);
+  animation-fill-mode: both;
+  transform-origin: center;
+  background: transparent;
+}
 ::view-transition-new(detail-information) {
   animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-timing-function: var(--detail-ease-out);
   animation-fill-mode: both;
   transform-origin: center;
   background: transparent;
 }
 ::view-transition-old(detail-information) {
-  animation-name: detail-content-exit;
+  animation-name: detail-content-exit-down;
 }
 ::view-transition-new(detail-information) {
-  animation-name: detail-content-enter;
+  animation-name: detail-content-enter-up;
+}
+::view-transition-old(.detail-content-next) {
+  animation-name: detail-content-exit-left;
+}
+::view-transition-new(.detail-content-next) {
+  animation-name: detail-content-enter-right;
+}
+::view-transition-old(.detail-content-previous) {
+  animation-name: detail-content-exit-right;
+}
+::view-transition-new(.detail-content-previous) {
+  animation-name: detail-content-enter-left;
 }
 ::view-transition-old(.detail-next) {
   animation-name: detail-exit-left;
@@ -108,16 +141,40 @@
     transform: translateX(-100%);
   }
 }
-@keyframes detail-content-enter {
+@keyframes detail-content-enter-up {
   from {
     opacity: 0;
-    scale: 0.6;
+    transform: translateY(100%);
   }
 }
-@keyframes detail-content-exit {
+@keyframes detail-content-exit-down {
   to {
     opacity: 0;
-    scale: 0.6;
+    transform: translateY(100%);
+  }
+}
+@keyframes detail-content-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+@keyframes detail-content-exit-right {
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+@keyframes detail-content-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+@keyframes detail-content-exit-left {
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
   }
 }
 @media (prefers-reduced-motion: reduce) {

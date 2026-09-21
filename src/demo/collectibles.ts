@@ -70,6 +70,14 @@ export const collectibleFields: SearchField[] = [
     priority: 10,
   },
   { key: "ownership", aliases: ["ownership"], kind: "category", priority: 11 },
+  {
+    key: "listing",
+    aliases: ["listing"],
+    kind: "category",
+    priority: 12,
+    presenceKeys: ["listed_value"],
+    presenceValues: ["listed", "for sale"],
+  },
 ];
 
 export const demoUser = { wallet_balance: 398.28 };

@@ -8,6 +8,13 @@ export type SearchIndex<T extends SearchRecord> = {
 };
 
 export function fieldValue(record: SearchRecord, field: SearchField): unknown {
+  if (field.presenceKeys)
+    return field.presenceKeys.some((key) => {
+      const value = record[key];
+      return value !== undefined && value !== null;
+    })
+      ? (field.presenceValues ?? [field.key])
+      : [];
   return field.fallbackKeys
     ? field.fallbackKeys
         .map((key) => record[key])
@@ -54,6 +61,12 @@ export function buildIndex<T extends SearchRecord>(
       }
     }
   }
+  for (const field of fields)
+    for (const value of field.presenceValues ?? []) {
+      const normalized = normalize(value);
+      const key = `${field.key}:${normalized}`;
+      if (!counts.has(key)) counts.set(key, { field: field.key, value, normalized, count: 0 });
+    }
   return {
     records,
     postings,

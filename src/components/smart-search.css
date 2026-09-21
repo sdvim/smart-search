@@ -139,6 +139,12 @@
   visibility: hidden;
   min-width: 1px;
 }
+.search-placeholder {
+  display: block;
+  visibility: visible;
+  color: color-mix(in srgb, var(--search-ink) 25%, transparent);
+  animation: search-placeholder-enter 180ms ease-out both;
+}
 .input-wrap input {
   position: absolute;
   inset: 0;
@@ -150,7 +156,7 @@
   border-radius: 0;
 }
 .input-wrap input::placeholder {
-  color: color-mix(in srgb, var(--search-ink) 25%, transparent);
+  color: transparent;
   opacity: 1;
 }
 .search-suggestion {
@@ -232,8 +238,16 @@
   border: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .search-chip {
+  .search-chip,
+  .search-placeholder {
     transition: none;
+    animation: none;
+  }
+}
+@keyframes search-placeholder-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
   }
 }
 @media (max-width: 700px) {

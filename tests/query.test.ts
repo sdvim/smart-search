@@ -372,6 +372,20 @@ describe("sorting and ownership keywords", () => {
     expect(filterRecords(scoped, parsed).map((record) => record.id)).toEqual(["unowned"]);
   });
 
+  it.each(["listed", "for sale"])("filters listed items with %s", (query) => {
+    const listed = buildIndex(
+      [
+        card("listed", { listed_value: 60 }),
+        card("free", { listed_value: 0 }),
+        card("unlisted", { listed_value: undefined }),
+      ],
+      index.dictionary.fields,
+    );
+    const parsed = parseQuery(query, listed.dictionary);
+    expect(parsed.tokens[0]).toMatchObject({ field: "listing" });
+    expect(filterRecords(listed, parsed).map((record) => record.id)).toEqual(["free", "listed"]);
+  });
+
   it("negates categorical and numeric filters without changing their positive grammar", () => {
     const scoped = buildIndex(
       [

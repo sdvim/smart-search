@@ -96,11 +96,17 @@ describe("real search interaction", () => {
     renderApp();
     await ready();
     expect(container.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Slaking");
+    expect(getComputedStyle(container.querySelector(".search-placeholder")!).animationName).toBe(
+      "search-placeholder-enter",
+    );
     await expect
       .poll(() => container.querySelector<HTMLInputElement>("input")?.placeholder, {
         timeout: 5000,
       })
-      .toBe("Pikachu");
+      .toBe("Pikachu between $100 and $300");
+    expect(getComputedStyle(container.querySelector(".search-placeholder")!).animationName).toBe(
+      "search-placeholder-enter",
+    );
   });
 
   it("accepts contextual completions, edits chips in place, removes and clears", async () => {
@@ -333,7 +339,7 @@ describe("real search interaction", () => {
     expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking under $100");
   });
 
-  it("uses fluid result columns as the viewport changes", async () => {
+  it("uses bounded left-aligned result columns as the viewport changes", async () => {
     renderApp();
     await ready();
     for (const [width, expected] of [
@@ -354,6 +360,10 @@ describe("real search interaction", () => {
         )
         .toBe(expected);
     }
+    expect(getComputedStyle(container.querySelector(".result-grid")!).justifyContent).toBe("start");
+    expect(
+      container.querySelector<HTMLElement>(".collectible-card")!.getBoundingClientRect().width,
+    ).toBe(160);
   });
 
   it("loads the next result page when the sentinel enters the viewport", async () => {

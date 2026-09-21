@@ -184,6 +184,30 @@ async function gallerySlide(trigger: () => Promise<void>) {
   }
 }
 
+async function contentSlide(trigger: () => Promise<void>) {
+  const captures: Promise<Animation[]>[] = [];
+  const start = document.startViewTransition.bind(document);
+  const spy = vi.spyOn(document, "startViewTransition").mockImplementation((options) => {
+    const transition = start(options);
+    captures.push(
+      transition.ready.then(() =>
+        viewAnimations().filter((animation) => {
+          const pseudoElement = (animation.effect as KeyframeEffect).pseudoElement ?? "";
+          return /detail-information|detail-content/.test(pseudoElement);
+        }),
+      ),
+    );
+    return transition;
+  });
+  try {
+    await trigger();
+    await expect.poll(() => captures.length).toBe(1);
+    return await captures[0];
+  } finally {
+    spy.mockRestore();
+  }
+}
+
 describe("native shared image transitions", () => {
   it("grows and shrinks the same image through real browser keyframes without moving a visible return target", async () => {
     await renderApp();
@@ -194,7 +218,7 @@ describe("native shared image transitions", () => {
     await expect.poll(() => opening.content).toBeDefined();
     const contentFrames = (opening.content!.effect as KeyframeEffect).getKeyframes();
     expect(contentFrames[0].opacity).toBe("0");
-    expect(contentFrames[0].scale).toBe("0.6");
+    expect(contentFrames[0].transform).toBe("translateY(100%)");
     expect(contentFrames.at(-1)!.opacity).toBe("1");
     const [small, large] = dimensions(opening.frames);
     expect(small.width).toBeCloseTo(gridBounds.width, 0);
@@ -212,7 +236,7 @@ describe("native shared image transitions", () => {
     await expect.poll(() => closing.content).toBeDefined();
     const closingContentFrames = (closing.content!.effect as KeyframeEffect).getKeyframes();
     expect(closingContentFrames.at(-1)!.opacity).toBe("0");
-    expect(closingContentFrames.at(-1)!.scale).toBe("0.6");
+    expect(closingContentFrames.at(-1)!.transform).toBe("translateY(100%)");
     const [from, to] = dimensions(closing.frames);
     expect(from.width).toBeCloseTo(large.width, 0);
     expect(to.width).toBeCloseTo(small.width, 0);
@@ -255,6 +279,36 @@ describe("native shared image transitions", () => {
         .element(page.getByRole("heading", { name: items[index].title, exact: true }))
         .toBeVisible();
       expect(container.querySelectorAll(".detail-gallery")).toHaveLength(1);
+    }
+  });
+
+  it("slides detail content with the direction of navigation", async () => {
+    await renderApp();
+    const opening = await imageMorph(0, () => userEvent.click(gridButton(0)));
+    await opening.animation.finished;
+    for (const [label, direction] of [
+      ["Next", 1],
+      ["Previous", -1],
+    ] as const) {
+      const animations = await contentSlide(() =>
+        page.getByRole("button", { name: label, exact: true }).click(),
+      );
+      for (const snapshot of ["old", "new"]) {
+        const animation = animations.find(
+          (candidate) =>
+            (candidate.effect as KeyframeEffect).pseudoElement ===
+            `::view-transition-${snapshot}(detail-information)`,
+        );
+        expect(animation).toBeDefined();
+        const frames = (animation!.effect as KeyframeEffect).getKeyframes();
+        expect([frames[0].transform, frames.at(-1)!.transform]).toEqual(
+          snapshot === "old"
+            ? ["none", `translateX(${direction * -100}%)`]
+            : [`translateX(${direction * 100}%)`, "none"],
+        );
+        expect(Number(animation!.effect!.getTiming().duration)).toBeGreaterThan(0);
+      }
+      await Promise.all(animations.map((animation) => animation.finished));
     }
   });
 

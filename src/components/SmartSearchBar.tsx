@@ -222,7 +222,14 @@ export function SmartSearchBar({
     <span className="search-editor" data-editor key="editor">
       <span className="input-wrap">
         <span className="input-sizer" aria-hidden="true">
-          {value.draft || (isEmpty && !visibleSuggestion ? placeholder : "\u200b")}
+          {value.draft ||
+            (isEmpty && !visibleSuggestion ? (
+              <span className="search-placeholder" key={placeholder}>
+                {placeholder}
+              </span>
+            ) : (
+              "\u200b"
+            ))}
         </span>
         <input
           ref={input}

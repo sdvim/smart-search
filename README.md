@@ -49,7 +49,7 @@ Tap a card image for a full-screen detail view with its set, year, grade, certif
 
 React's built-in ViewTransition enlarges the image into the centered detail view and shrinks it back on Escape or Close. Closing returns to the currently viewed card, including cards reached on later pages: an offscreen destination scrolls into view before the transition snapshot, while an already-visible destination keeps its scroll position. Focus returns to that card. The shared-image animation lasts 300 ms, skips motion for reduced-motion preferences, and falls back to immediate navigation in unsupported browsers. No animation library or extra search request is needed.
 
-Next slides the gallery left, bringing the next card in from the right; Previous reverses that motion. The 280 ms slide leaves the header and details stationary. Its touch target stays outside the animated surface so consecutive swipes work during the transition. Reduced motion and unsupported browsers use immediate navigation.
+Next slides the gallery and detail content left, bringing the next card in from the right; Previous reverses that motion. Opening slides detail content up and closing slides it down. The 280 ms slide keeps navigation usable, and its touch target stays outside the animated surface so consecutive swipes work during the transition. Reduced motion and unsupported browsers use immediate navigation.
 
 ## Portfolio preferences
 
@@ -81,6 +81,7 @@ To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to 
 | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Subject, category    | `Slaking`, `Pikachu`, `Alakazam ex`, `category:pokemon`                                                              |
 | Owned holdings       | `mine`, `vaulted`, `mine Slaking`, `vaulted under $100`                                                              |
+| Listed items         | `listed`, `for sale`, `not listed`, `Slaking listed`                                                                 |
 | Price sorting        | `cheapest`, `low to high`, `most expensive`, `high to low`, `mine cheapest`                                          |
 | Exact year           | `2005`, `year:2005`, `y:2005`                                                                                        |
 | Year range           | `2000-2010`, `from 2000 to 2010`, `between 2000 and 2010`, `y:2000-2010`                                             |
@@ -113,9 +114,9 @@ Unknown text stays editable and is matched as word prefixes. Incomplete operator
 | `data/`           | Sanitized source snapshot and normalized JSONL records                                                      |
 | `tests/`          | Grammar/engine, API, dataset, and browser interaction tests                                                 |
 
-The component has no Pokémon, wallet, fetch, or result-grid dependency. Reuse `src/components` with `src/search/types.ts`, or copy the whole search engine and supply different `SearchField` definitions and records. `SearchField` configures aliases, value kind, priority, inference role, family/property matching, and fallback keys. The index builds vocabulary and exact-match postings from the supplied records, rather than a hardcoded list of subjects or sets.
+The component has no Pokémon, wallet, fetch, or result-grid dependency. Reuse `src/components` with `src/search/types.ts`, or copy the whole search engine and supply different `SearchField` definitions and records. `SearchField` configures aliases, value kind, priority, inference role, family/property matching, fallback keys, and presence values for existence filters. The index builds vocabulary and exact-match postings from the supplied records, rather than a hardcoded list of subjects or sets.
 
-The controlled interface is `value`, `onChange`, `suggestion`, `onAcceptSuggestion`, and `onSubmit`, with optional accessible label and placeholder. `SearchValue` keeps committed tokens, the current draft, and an optional edited token ID. `updateDraft` parses/commits drafts; `serializeQuery` and `activeRange` preserve editing position for the endpoint. The demo cycles its empty-state placeholder from broad subjects through price, grade, year, property, set, and certificate examples. See `src/demo/App.tsx` for the complete adapter. No package publication or generic plug-in framework is required.
+The controlled interface is `value`, `onChange`, `suggestion`, `onAcceptSuggestion`, and `onSubmit`, with optional accessible label and placeholder. `SearchValue` keeps committed tokens, the current draft, and an optional edited token ID. `updateDraft` parses/commits drafts; `serializeQuery` and `activeRange` preserve editing position for the endpoint. The demo cycles its empty-state placeholder from broad subjects through combined natural-language ranges, compact modifiers, listing, and portfolio examples; each example slides upward into place. See `src/demo/App.tsx` for the complete adapter. No package publication or generic plug-in framework is required.
 
 The page uses the system sans-serif stack and only Lucide Search/X. The component provides local box sizing and uses `--ink` / `--paper` CSS variables with black/white defaults. The demo follows the system dark preference. Reduced-motion preferences disable transitions.
 

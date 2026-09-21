@@ -10,6 +10,8 @@ export type SearchField = {
   match?: "family" | "all";
   currency?: boolean;
   fallbackKeys?: string[];
+  presenceKeys?: string[];
+  presenceValues?: string[];
   sortAliases?: { asc?: string[]; desc?: string[] };
 };
 
