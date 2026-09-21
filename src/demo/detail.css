@@ -1,4 +1,5 @@
 :root {
+  --detail-content-slide: 24px;
   --detail-ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
   --detail-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --detail-ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
@@ -160,25 +161,25 @@
 @keyframes detail-content-enter-right {
   from {
     opacity: 0;
-    transform: translateX(100%);
+    transform: translateX(var(--detail-content-slide));
   }
 }
 @keyframes detail-content-exit-right {
   to {
     opacity: 0;
-    transform: translateX(100%);
+    transform: translateX(var(--detail-content-slide));
   }
 }
 @keyframes detail-content-enter-left {
   from {
     opacity: 0;
-    transform: translateX(-100%);
+    transform: translateX(calc(var(--detail-content-slide) * -1));
   }
 }
 @keyframes detail-content-exit-left {
   to {
     opacity: 0;
-    transform: translateX(-100%);
+    transform: translateX(calc(var(--detail-content-slide) * -1));
   }
 }
 @media (prefers-reduced-motion: reduce) {

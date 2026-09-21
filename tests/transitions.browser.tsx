@@ -304,8 +304,8 @@ describe("native shared image transitions", () => {
         const frames = (animation!.effect as KeyframeEffect).getKeyframes();
         expect([frames[0].transform, frames.at(-1)!.transform]).toEqual(
           snapshot === "old"
-            ? ["none", `translateX(${direction * -100}%)`]
-            : [`translateX(${direction * 100}%)`, "none"],
+            ? ["none", `translateX(${direction * -24}px)`]
+            : [`translateX(${direction * 24}px)`, "none"],
         );
         expect(Number(animation!.effect!.getTiming().duration)).toBeGreaterThan(0);
       }
