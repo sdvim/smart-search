@@ -53,9 +53,9 @@ Next slides the gallery left, bringing the next card in from the right; Previous
 
 ## Portfolio preferences
 
-`data/portfolio.json` selects 30 graded holdings verified against [Slaking's public collection](https://courtyard.io/user/slaking/collection) on September 20, 2026. The public collection had 33 items; its three ungraded cards are outside this demo's dataset. An additional user-reported Alt holding, [PSA cert 78682474](https://www.psacard.com/cert/78682474/psa), is a 2007 Power Keepers Holo Slaking #13, PSA 10, with a public PSA estimate of $691. PSA verifies the card identity, while the Alt ownership is user-provided and recorded separately in `external_holdings`.
+`data/portfolio.json` selects five graded holdings from the frozen dataset captured against [Slaking's public collection](https://courtyard.io/user/slaking/collection) on September 20, 2026 and the Pokémon marketplace snapshots. The public Slaking collection had 33 items; its three ungraded cards are outside this demo's dataset. An additional user-reported Alt holding, [PSA cert 78682474](https://www.psacard.com/cert/78682474/psa), is a 2007 Power Keepers Holo Slaking #13, PSA 10, with a public PSA estimate of $691. PSA verifies the card identity, while the Alt ownership is user-provided and recorded separately in `external_holdings`.
 
-The 31 starting holdings total **$1,651.00**, using fair market value first and listing value only when no estimate exists. Missing values are excluded, zero is preserved, and totals use integer cents. These are frozen estimates, not purchase prices or a live account valuation.
+The starting portfolio contains five selected holdings—three Slaking cards, one Alakazam, and one Pikachu—and totals **$738.90**, using fair market value first and listing value only when no estimate exists. Missing values are excluded, zero is preserved, and totals use integer cents. These are frozen estimates, not purchase prices or a live account valuation.
 
 `GET /api/portfolio` recalculates the total and this small summary from the selected records:
 
@@ -65,13 +65,13 @@ The 31 starting holdings total **$1,651.00**, using fair market value first and 
     "subject": ["Slaking ex", "Slaking V", "Slaking"],
     "grade": [10, 9]
   },
-  "price_range": [10, 30]
+  "price_range": [10, 20]
 }
 ```
 
 The three most common subjects and two most common grades are ordered by frequency. The price range covers the middle half of holding values, rounded outward to $10 boundaries, so one expensive card does not dominate the suggestions. Holding values are only a rough proxy for comfortable spending. No transaction history or unrelated profile data is used.
 
-The same summary favors matching results and suggestions. For example, empty search suggests `Slaking ex`, then a price completion can suggest `between $10 and $30`, and grade completion prefers `grade 10+`. Typed prefixes, explicit filters, and explicit sorting always take precedence; other cards remain searchable. If the portfolio request fails, search continues with wallet-only defaults and purchases stay disabled.
+The same summary favors matching results and suggestions. For example, empty search suggests a Slaking value, then a price completion can suggest `between $10 and $20`, and grade completion prefers `grade 10+`. Typed prefixes, explicit filters, and explicit sorting always take precedence; other cards remain searchable. If the portfolio request fails, search continues with wallet-only defaults and purchases stay disabled.
 
 To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to IDs present in `data/items.jsonl`, then restart the dev server. Changes to holding IDs or item values automatically recalculate preferences; there is no separate profile to maintain. Starting holding records are loaded once for local recalculation; search requests contain the small preference summary and any simulated purchase IDs, not full card records.
 
@@ -115,7 +115,7 @@ Unknown text stays editable and is matched as word prefixes. Incomplete operator
 
 The component has no Pokémon, wallet, fetch, or result-grid dependency. Reuse `src/components` with `src/search/types.ts`, or copy the whole search engine and supply different `SearchField` definitions and records. `SearchField` configures aliases, value kind, priority, inference role, family/property matching, and fallback keys. The index builds vocabulary and exact-match postings from the supplied records, rather than a hardcoded list of subjects or sets.
 
-The controlled interface is `value`, `onChange`, `suggestion`, `onAcceptSuggestion`, and `onSubmit`, with optional accessible label and placeholder. `SearchValue` keeps committed tokens, the current draft, and an optional edited token ID. `updateDraft` parses/commits drafts; `serializeQuery` and `activeRange` preserve editing position for the endpoint. See `src/demo/App.tsx` for the complete adapter. No package publication or generic plug-in framework is required.
+The controlled interface is `value`, `onChange`, `suggestion`, `onAcceptSuggestion`, and `onSubmit`, with optional accessible label and placeholder. `SearchValue` keeps committed tokens, the current draft, and an optional edited token ID. `updateDraft` parses/commits drafts; `serializeQuery` and `activeRange` preserve editing position for the endpoint. The demo cycles its empty-state placeholder from broad subjects through price, grade, year, property, set, and certificate examples. See `src/demo/App.tsx` for the complete adapter. No package publication or generic plug-in framework is required.
 
 The page uses the system sans-serif stack and only Lucide Search/X. The component provides local box sizing and uses `--ink` / `--paper` CSS variables with black/white defaults. The demo follows the system dark preference. Reduced-motion preferences disable transitions.
 

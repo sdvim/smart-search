@@ -7,7 +7,9 @@ import type { Root } from "react-dom/client";
 import { App } from "../src/demo/App.tsx";
 import { summarizePortfolio } from "../src/demo/portfolio.ts";
 import type { PortfolioSummary, PortfolioSnapshot } from "../src/demo/portfolio.ts";
+import type { Collectible } from "../src/demo/collectibles.ts";
 import type { SearchContext } from "../src/search/types.ts";
+import type { SearchResponse } from "../src/search/types.ts";
 import { card } from "./fixtures.ts";
 
 let container: HTMLDivElement;
@@ -164,12 +166,16 @@ describe("portfolio integration", () => {
         .poll(() => container.querySelector(".results output")!.textContent)
         .toBe(`${summary.item_count} collectibles found`);
       await ready();
-      const prices = [...container.querySelectorAll(".buy-button, .estimated-value")]
-        .map((element) => /\$([\d,.]+)/.exec(element.textContent ?? "")?.[1])
-        .filter((price): price is string => price !== undefined)
-        .map((price) => Number(price.replaceAll(",", "")));
-      expect(prices.length).toBeGreaterThan(1);
-      expect(prices).toEqual(prices.toSorted((a, b) => (order === "cheapest" ? a - b : b - a)));
+      const expected = (await fetch("/api/search", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: `${owner} ${order}`, page_size: 100 }),
+      }).then((response) => response.json())) as SearchResponse<Collectible>;
+      expect(
+        [...container.querySelectorAll<HTMLElement>(".collectible-card")].map(
+          (card) => card.dataset.itemId,
+        ),
+      ).toEqual(expected.items.map((item) => item.id));
       await page.getByRole("button", { name: "Clear search" }).click();
     }
   });

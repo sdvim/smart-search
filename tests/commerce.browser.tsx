@@ -138,7 +138,9 @@ describe("session commerce", () => {
     )!;
     expect(ownedButton.disabled).toBe(false);
     expect(ownedButton.textContent).toContain("Owned");
+    const ownedWidth = ownedButton.getBoundingClientRect().width;
     await userEvent.hover(ownedButton);
+    expect(ownedButton.getBoundingClientRect().width).toBe(ownedWidth);
     expect(getComputedStyle(ownedButton).color).toBe("rgb(198, 40, 40)");
     expect(ownedButton.textContent).toContain(`Sell for ${formatMoney(sellValue(candidate)!)}`);
     expect(requests.length).toBe(requestCount);

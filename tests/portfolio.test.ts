@@ -54,14 +54,17 @@ describe("portfolio summary", () => {
     expect(summary.preferences.price_range).toBeUndefined();
   });
 
-  it("resolves every captured graded holding to a real card with a compact recalculated profile", async () => {
+  it("resolves the selected holdings to real cards with a compact recalculated profile", async () => {
     const [index, source] = await Promise.all([loadIndex(), loadPortfolio()]);
     expect(new Set(source.item_ids).size).toBe(source.item_ids.length);
-    expect(
-      source.item_ids.length -
-        (source.external_holdings?.length ?? 0) +
-        source.excluded_ungraded_count,
-    ).toBe(source.public_item_count);
+    expect(source.item_ids).toHaveLength(5);
+    expect(source.external_holdings?.map((holding) => holding.item_id)).toEqual(["psa-78682474"]);
+    const holdings = source.item_ids.map((id) => index.records.find((item) => item.id === id));
+    expect(holdings.every(Boolean)).toBe(true);
+    const subjects = holdings.map((item) => item!.subject);
+    expect(subjects.filter((subject) => subject === "Slaking")).toHaveLength(3);
+    expect(subjects.filter((subject) => subject === "Alakazam")).toHaveLength(1);
+    expect(subjects.filter((subject) => subject === "Pikachu")).toHaveLength(1);
     const summary = summarizePortfolio(index.records, source.item_ids);
     expect(summary.item_count).toBe(source.item_ids.length);
     expect(summary.valued_item_count).toBe(summary.item_count);

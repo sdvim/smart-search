@@ -188,10 +188,18 @@ button {
   color: var(--paper);
 }
 .buy-button.owned-button {
+  display: inline-grid;
+  grid-template-areas: "label";
+  min-width: max-content;
   opacity: 0.5;
 }
+.buy-button.owned-button > span {
+  grid-area: label;
+  white-space: nowrap;
+}
 .buy-button.owned-button .sell-label {
-  display: none;
+  display: inline;
+  visibility: hidden;
 }
 .buy-button.owned-button:not(:disabled):hover,
 .buy-button.owned-button:not(:disabled):focus-visible {
@@ -202,11 +210,12 @@ button {
 }
 .buy-button.owned-button:not(:disabled):hover .owned-label,
 .buy-button.owned-button:not(:disabled):focus-visible .owned-label {
-  display: none;
+  visibility: hidden;
 }
 .buy-button.owned-button:not(:disabled):hover .sell-label,
 .buy-button.owned-button:not(:disabled):focus-visible .sell-label {
   display: inline;
+  visibility: visible;
 }
 .buy-button:disabled {
   cursor: default;

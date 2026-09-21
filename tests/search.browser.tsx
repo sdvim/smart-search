@@ -92,6 +92,17 @@ async function clickAt(x: number, y: number) {
 }
 
 describe("real search interaction", () => {
+  it("cycles through broad-to-specific empty search examples", async () => {
+    renderApp();
+    await ready();
+    expect(container.querySelector<HTMLInputElement>("input")?.placeholder).toBe("Slaking");
+    await expect
+      .poll(() => container.querySelector<HTMLInputElement>("input")?.placeholder, {
+        timeout: 5000,
+      })
+      .toBe("Pikachu");
+  });
+
   it("accepts contextual completions, edits chips in place, removes and clears", async () => {
     renderApp();
     await ready();

@@ -39,6 +39,18 @@ function updateQueryParam(query: string) {
   window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
+const searchPlaceholders = [
+  "Slaking",
+  "Pikachu",
+  "under $100",
+  "grade 9+",
+  "before 2010",
+  "reverse holo",
+  "in Base Set",
+  "cert:6018503138",
+] as const;
+const searchPlaceholderInterval = 2800;
+
 export function App() {
   const [initialQuery] = useState(() => new URL(window.location.href).searchParams.get("q") ?? "");
   const [value, setValue] = useState<SearchValue>(() =>
@@ -59,6 +71,7 @@ export function App() {
     purchasedIds: string[];
     soldIds: string[];
   } | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [purchaseRevealKey, setPurchaseRevealKey] = useState(0);
   const user = account.searchContext;
   const search = useSearch(
@@ -72,6 +85,15 @@ export function App() {
   const resultsEnd = useRef<HTMLDivElement>(null);
   const returnTarget = useRef<HTMLButtonElement | null>(null);
   const { hasMore, loadMore, loadingMore, loadMoreError } = search;
+
+  useEffect(() => {
+    if (value.draft || value.tokens.length) return;
+    const timer = window.setInterval(
+      () => setPlaceholderIndex((index) => (index + 1) % searchPlaceholders.length),
+      searchPlaceholderInterval,
+    );
+    return () => window.clearInterval(timer);
+  }, [value.draft, value.tokens.length]);
 
   useEffect(() => {
     const target = resultsEnd.current;
@@ -290,6 +312,7 @@ export function App() {
           }}
           onSubmit={submit}
           ariaLabel="Search collectibles"
+          placeholder={searchPlaceholders[placeholderIndex]}
         />
         <p className="wallet">
           Balance:{" "}
