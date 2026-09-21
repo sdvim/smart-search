@@ -131,6 +131,14 @@ describe("collectible details", () => {
     await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("keeps a small neighbor edge on narrow screens and expands it on wide screens", async () => {
+    await openDetail();
+    const neighbor = container.querySelector<HTMLElement>(".detail-next")!;
+    expect(Number.parseFloat(getComputedStyle(neighbor).width)).toBeCloseTo(24, 0);
+    await page.viewport(1200, 844);
+    expect(Number.parseFloat(getComputedStyle(neighbor).width)).toBeCloseTo(72, 0);
+  });
+
   it("shows real metadata, a placeholder for missing images, and an inactive unlisted CTA", async () => {
     await openDetail();
     await page.getByRole("button", { name: "Next", exact: true }).click();

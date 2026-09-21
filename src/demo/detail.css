@@ -1,5 +1,5 @@
 :root {
-  --detail-content-slide: 24px;
+  --detail-content-slide: 48px;
   --detail-ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
   --detail-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --detail-ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
@@ -83,14 +83,14 @@
   animation-timing-function: var(--detail-ease-in);
   animation-fill-mode: both;
   transform-origin: center;
-  background: transparent;
+  background: var(--paper);
 }
 ::view-transition-new(detail-information) {
   animation-duration: 260ms;
   animation-timing-function: var(--detail-ease-out);
   animation-fill-mode: both;
   transform-origin: center;
-  background: transparent;
+  background: var(--paper);
 }
 ::view-transition-old(detail-information) {
   animation-name: detail-content-exit-down;
@@ -159,25 +159,41 @@
   }
 }
 @keyframes detail-content-enter-right {
-  from {
+  0% {
     opacity: 0;
     transform: translateX(var(--detail-content-slide));
   }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 @keyframes detail-content-exit-right {
-  to {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
     opacity: 0;
     transform: translateX(var(--detail-content-slide));
   }
 }
 @keyframes detail-content-enter-left {
-  from {
+  0% {
     opacity: 0;
     transform: translateX(calc(var(--detail-content-slide) * -1));
   }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 @keyframes detail-content-exit-left {
-  to {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
     opacity: 0;
     transform: translateX(calc(var(--detail-content-slide) * -1));
   }
@@ -227,6 +243,7 @@
 .detail-gallery {
   --detail-image-height: min(62svh, 700px);
   --detail-image-width: min(72vw, calc(var(--detail-image-height) * 0.6));
+  --detail-neighbor-peek: clamp(24px, 6vw, 72px);
   height: var(--detail-image-height);
   overflow: hidden;
   touch-action: pan-y pinch-zoom;
@@ -252,7 +269,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: max(48px, 10vw);
+  width: var(--detail-neighbor-peek);
   padding: 0;
   border: 0;
   background: transparent;
@@ -275,10 +292,10 @@
   top: 0;
 }
 .detail-previous .card-image {
-  right: calc(100% - 24px);
+  right: calc(100% - var(--detail-neighbor-peek));
 }
 .detail-next .card-image {
-  left: calc(100% - 24px);
+  left: calc(100% - var(--detail-neighbor-peek));
 }
 .detail-information {
   width: min(100%, 760px);
