@@ -228,6 +228,7 @@ export function SmartSearchBar({
           ref={input}
           type="text"
           role="searchbox"
+          name="q"
           aria-label={ariaLabel}
           aria-autocomplete="inline"
           aria-describedby={descriptionId}
