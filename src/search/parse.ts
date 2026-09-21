@@ -3,7 +3,7 @@ import { normalize, normalizedPrefixLength } from "./types.ts";
 import type { ParsedQuery, QueryToken, SearchDictionary, SearchField } from "./types.ts";
 
 const comparisonPrefix = new RegExp(`^(${comparisonSource})\\s+`, "i");
-const pendingComparison = new RegExp(`^(?:${comparisonSource})\\s*\\$?$`, "i");
+const pendingComparison = new RegExp(`^(?:${comparisonSource}|~)\\s*\\$?$`, "i");
 
 function categoricalToken(field: SearchField, value: string, text: string): QueryToken {
   return {
@@ -193,7 +193,7 @@ export function parseQuery(query: string, dictionary: SearchDictionary): ParsedQ
         .some((alias) => normalize(alias).startsWith(normalized)),
     ) ||
     pendingComparison.test(pendingArgument) ||
-    /^[<>=$#]+$/.test(pendingArgument) ||
+    /^[<>=$#~]+$/.test(pendingArgument) ||
     numericTail ||
     (!!field && !argument);
   return { tokens, draft: rest, pending: !!rest && pending };

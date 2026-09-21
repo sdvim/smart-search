@@ -30,7 +30,7 @@ const operators = {
 } as const;
 const suffixes = { "+": "gte", "<": "gt", ">": "lt", "<=": "gte", ">=": "lte" } as const;
 const comparisonWords = Object.keys(operators).filter((operator) => /^[a-z]/.test(operator));
-export const numericKeywords = [...comparisonWords, "from", "between", "about"];
+export const numericKeywords = [...comparisonWords, "from", "between", "about", "~"];
 export const comparisonSource = comparisonWords
   .map((operator) => operator.replaceAll(" ", String.raw`\s+`))
   .join("|");
@@ -43,6 +43,7 @@ const comparisonPattern = new RegExp(
   `^(${comparisonSource}|>=|<=|>|<|=)?\\s*(${amount})(\\+|<=|>=|<|>)?(?![\\d.])`,
   "i",
 );
+const aboutPattern = new RegExp(`^(?:about\\s+|~\\s*)(${amount})`, "i");
 
 export function numberValue(value: string) {
   return Number(value.replace(/[$,]/g, ""));
@@ -66,6 +67,7 @@ export function numericToken(
   values: number[],
   text: string,
   direction?: QueryToken["direction"],
+  aboutCenter?: number,
 ): QueryToken {
   const rawValues = text.match(/\$?[\d,]+(?:\.\d+)?/g) ?? [];
   const format = (value: number, index: number) => {
@@ -95,6 +97,11 @@ export function numericToken(
   if (operator === "range") label = `from ${first} to ${format(values[1], 1)}`;
   if (field.inference === "grade") label = `grade ${compactLabel}`;
   if (operator === "eq" && field.inference === "year") label = `year ${first}`;
+  if (aboutCenter !== undefined) {
+    const center = format(aboutCenter, 0);
+    label = `about ${center}`;
+    compactLabel = `~${center}`;
+  }
   return {
     id: "",
     field: field.key,
@@ -108,7 +115,7 @@ export function numericToken(
 }
 
 export function readNumber(input: string, dictionary: SearchDictionary, explicit?: SearchField) {
-  const about = input.match(new RegExp(`^about\\s+(${amount})`, "i"));
+  const about = input.match(aboutPattern);
   if (about) {
     const field = explicit ?? inferField(about[1], dictionary);
     if (!field) return null;
@@ -117,7 +124,7 @@ export function readNumber(input: string, dictionary: SearchDictionary, explicit
     const upper = Number((center * 1.1).toFixed(10));
     return {
       length: about[0].length,
-      token: numericToken(field, "range", [lower, upper], about[0]),
+      token: numericToken(field, "range", [lower, upper], about[0], undefined, center),
     };
   }
   const range = input.match(rangePattern);

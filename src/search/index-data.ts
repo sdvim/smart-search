@@ -42,6 +42,17 @@ export function buildIndex<T extends SearchRecord>(
   >();
   const postings = new Map<string, Set<string>>();
   const numbers: Record<string, Set<number>> = {};
+  const addCategoricalValue = (field: SearchField, value: string, record: T, count = true) => {
+    const normalized = normalize(value);
+    const key = `${field.key}:${normalized}`;
+    if (count) {
+      const existing = counts.get(key);
+      if (existing) existing.count++;
+      else counts.set(key, { field: field.key, value, normalized, count: 1 });
+    } else if (!counts.has(key)) counts.set(key, { field: field.key, value, normalized, count: 0 });
+    if (!postings.has(key)) postings.set(key, new Set());
+    postings.get(key)!.add(record.id);
+  };
   for (const record of records) {
     for (const field of fields) {
       const value = fieldValue(record, field);
@@ -50,13 +61,10 @@ export function buildIndex<T extends SearchRecord>(
       } else {
         for (const entry of Array.isArray(value) ? value : [value]) {
           if (typeof entry !== "string" || !entry) continue;
-          const normalized = normalize(entry);
-          const key = `${field.key}:${normalized}`;
-          const existing = counts.get(key);
-          if (existing) existing.count++;
-          else counts.set(key, { field: field.key, value: entry, normalized, count: 1 });
-          if (!postings.has(key)) postings.set(key, new Set());
-          postings.get(key)!.add(record.id);
+          addCategoricalValue(field, entry, record);
+          for (const [alias, canonical] of Object.entries(field.valueAliases ?? {}))
+            if (normalize(canonical) === normalize(entry))
+              addCategoricalValue(field, alias, record);
         }
       }
     }

@@ -52,6 +52,8 @@ describe("numeric grammar", () => {
     ["$100", "price", "eq", [100]],
     ["$100<", "price", "gt", [100]],
     ["$100+", "price", "gte", [100]],
+    ["~$100", "price", "range", [90, 110]],
+    ["about 9", "grade", "range", [8.1, 9.9]],
     ["9", "grade", "eq", [9]],
     ["9.5", "grade", "eq", [9.5]],
     ["14.50", "price", "eq", [14.5]],
@@ -419,14 +421,45 @@ describe("sorting and ownership keywords", () => {
     }
   });
 
+  it.each(["japanese", "jp", "language:japanese", "language:jp"])(
+    "accepts Japanese language terms: %s",
+    (query) => {
+      const scoped = buildIndex(
+        [card("english", { language: "en" }), card("japanese", { language: "jp" })],
+        index.dictionary.fields,
+      );
+      const parsed = parseQuery(query, scoped.dictionary);
+      expect(parsed).toMatchObject({ draft: "", tokens: [{ field: "language", operator: "eq" }] });
+      expect(filterRecords(scoped, parsed).map((record) => record.id)).toEqual(["japanese"]);
+    },
+  );
+
+  it.each(["english", "en", "language:english", "language:en"])(
+    "accepts English language terms: %s",
+    (query) => {
+      const scoped = buildIndex(
+        [card("english", { language: "en" }), card("japanese", { language: "jp" })],
+        index.dictionary.fields,
+      );
+      const parsed = parseQuery(query, scoped.dictionary);
+      expect(parsed).toMatchObject({ draft: "", tokens: [{ field: "language", operator: "eq" }] });
+      expect(filterRecords(scoped, parsed).map((record) => record.id)).toEqual(["english"]);
+    },
+  );
+
   it("interprets about as an inclusive ten percent range", () => {
     const parsed = parseQuery("about $100", index.dictionary);
     expect(parsed).toMatchObject({ draft: "", tokens: [{ field: "price", operator: "range" }] });
     expect(parsed.tokens[0].values).toEqual([90, 110]);
     expect(filterRecords(index, parsed).map((record) => record.id)).toEqual(["b"]);
     expect(parseQuery("about $100.00", index.dictionary).tokens[0]).toMatchObject({
-      label: "from $90.00 to $110.00",
-      compactLabel: "$90.00–$110.00",
+      label: "about $100.00",
+      compactLabel: "~$100.00",
+    });
+    expect(parseQuery("~$100.00", index.dictionary).tokens[0]).toMatchObject({
+      label: "about $100.00",
+      compactLabel: "~$100.00",
+      values: [90, 110],
     });
   });
 });

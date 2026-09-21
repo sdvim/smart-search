@@ -259,6 +259,18 @@ describe("real search interaction", () => {
     ).toEqual(["Edit under $100", "Edit before 2020"]);
   });
 
+  it("keeps approximate filters readable while accepting their shorthand", async () => {
+    renderApp();
+    await ready();
+    await searchbox().fill("about $100");
+    await userEvent.keyboard(" ");
+    await expect.element(page.getByRole("button", { name: "Edit about $100" })).toBeVisible();
+    await page.getByRole("button", { name: "Clear search" }).click();
+    await searchbox().fill("~$100");
+    await userEvent.keyboard("{Enter}");
+    await expect.element(page.getByRole("button", { name: "Edit about $100" })).toBeVisible();
+  });
+
   it("inserts a native Space inside a recognized query without committing", async () => {
     renderApp();
     await ready();

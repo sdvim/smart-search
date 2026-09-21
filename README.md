@@ -53,25 +53,25 @@ Next slides the gallery and detail content left, bringing the next card in from 
 
 ## Portfolio preferences
 
-`data/portfolio.json` selects five graded holdings from the frozen dataset captured against [Slaking's public collection](https://courtyard.io/user/slaking/collection) on September 20, 2026 and the Pokémon marketplace snapshots. The public Slaking collection had 33 items; its three ungraded cards are outside this demo's dataset. An additional user-reported Alt holding, [PSA cert 78682474](https://www.psacard.com/cert/78682474/psa), is a 2007 Power Keepers Holo Slaking #13, PSA 10, with a public PSA estimate of $691. PSA verifies the card identity, while the Alt ownership is user-provided and recorded separately in `external_holdings`.
+`data/portfolio.json` selects three graded holdings from the frozen dataset captured against [Slaking's public collection](https://courtyard.io/user/slaking/collection) on September 20, 2026 and the Pokémon marketplace snapshots. The public Slaking collection had 33 items; its three ungraded cards are outside this proof of concept's dataset. An additional user-reported Alt holding, [PSA cert 78682474](https://www.psacard.com/cert/78682474/psa), is a 2007 Power Keepers Holo Slaking #13, PSA 10, with a public PSA estimate of $691. PSA verifies the card identity, while the Alt ownership is user-provided and recorded separately in `external_holdings`.
 
-The starting portfolio contains five selected holdings—three Slaking cards, one Alakazam, and one Pikachu—and totals **$738.90**, using fair market value first and listing value only when no estimate exists. Missing values are excluded, zero is preserved, and totals use integer cents. These are frozen estimates, not purchase prices or a live account valuation.
+The starting portfolio contains three selected holdings—one Slaking, one Alakazam, and one Pikachu—and totals **$1,140.00**, using fair market value first and listing value only when no estimate exists. Missing values are excluded, zero is preserved, and totals use integer cents. These are frozen estimates, not purchase prices or a live account valuation.
 
 `GET /api/portfolio` recalculates the total and this small summary from the selected records:
 
 ```json
 {
   "preferred_values": {
-    "subject": ["Slaking ex", "Slaking V", "Slaking"],
-    "grade": [10, 9]
+    "subject": ["Alakazam", "Pikachu", "Slaking"],
+    "grade": [10, 6]
   },
-  "price_range": [10, 20]
+  "price_range": [90, 700]
 }
 ```
 
 The three most common subjects and two most common grades are ordered by frequency. The price range covers the middle half of holding values, rounded outward to $10 boundaries, so one expensive card does not dominate the suggestions. Holding values are only a rough proxy for comfortable spending. No transaction history or unrelated profile data is used.
 
-The same summary favors matching results and suggestions. For example, empty search suggests a Slaking value, then a price completion can suggest `between $10 and $20`, and grade completion prefers `grade 10+`. Typed prefixes, explicit filters, and explicit sorting always take precedence; other cards remain searchable. If the portfolio request fails, search continues with wallet-only defaults and purchases stay disabled.
+The same summary favors matching results and suggestions. Typed prefixes, explicit filters, and explicit sorting always take precedence; other cards remain searchable. If the portfolio request fails, search continues with wallet-only defaults and purchases stay disabled.
 
 To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to IDs present in `data/items.jsonl`, then restart the dev server. Changes to holding IDs or item values automatically recalculate preferences; there is no separate profile to maintain. Starting holding records are loaded once for local recalculation; search requests contain the small preference summary and any simulated purchase IDs, not full card records.
 
@@ -81,6 +81,7 @@ To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to 
 | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Subject, category    | `Slaking`, `Pikachu`, `Alakazam ex`, `category:pokemon`                                                              |
 | Owned holdings       | `mine`, `vaulted`, `mine Slaking`, `vaulted under $100`                                                              |
+| Negative filters     | `not mine`, `-mine`, `not pikachu`, `-jp`, `not above $100`                                                          |
 | Listed items         | `listed`, `for sale`, `not listed`, `Slaking listed`                                                                 |
 | Price sorting        | `cheapest`, `low to high`, `most expensive`, `high to low`, `mine cheapest`                                          |
 | Exact year           | `2005`, `year:2005`, `y:2005`                                                                                        |
@@ -89,7 +90,9 @@ To adjust the starting portfolio, change `item_ids` in `data/portfolio.json` to 
 | Price                | `$100`, `price:100`, `under $100`, `below $100`, `above $100`, `between $100 and $1000`, `$100-$1000`                |
 | Inclusive comparison | `at least $100`, `no less than $100`, `>=$100`, `$100+`, `at most $100`, `no more than $100`, `up to $100`, `<=$100` |
 | Exclusive comparison | `more than $100`, `greater than $100`, `>$100`, `less than $100`, `fewer than $100`, `<$100`                         |
+| Approximate value    | `about $100`, `~$100`                                                                                                |
 | Grade                | `9`, `9.5`, `grade 9+`, `g:8.5-10`                                                                                   |
+| Language             | `japanese`, `jp`, `language:japanese`, `english`, `en`                                                               |
 | Set, property        | `in Deoxys`, `set:Deoxys`, `is reverse holo`, `is:reverse holo`                                                      |
 | Set numbers          | `#006 and #12 and #292`, `6, 12, 292`, `6,12,292`, `#227/191`                                                        |
 | Certificates         | `#6018503138 and 89733218`, `6018503138, 89733218`, `cert:0001234567`                                                |
@@ -114,7 +117,7 @@ Unknown text stays editable and is matched as word prefixes. Incomplete operator
 | `data/`           | Sanitized source snapshot and normalized JSONL records                                                      |
 | `tests/`          | Grammar/engine, API, dataset, and browser interaction tests                                                 |
 
-The component has no Pokémon, wallet, fetch, or result-grid dependency. Reuse `src/components` with `src/search/types.ts`, or copy the whole search engine and supply different `SearchField` definitions and records. `SearchField` configures aliases, value kind, priority, inference role, family/property matching, fallback keys, and presence values for existence filters. The index builds vocabulary and exact-match postings from the supplied records, rather than a hardcoded list of subjects or sets.
+The component has no Pokémon, wallet, fetch, or result-grid dependency. Reuse `src/components` with `src/search/types.ts`, or copy the whole search engine and supply different `SearchField` definitions and records. `SearchField` configures aliases, value aliases, value kind, priority, inference role, family/property matching, fallback keys, and presence values for existence filters. The index builds vocabulary and exact-match postings from the supplied records, rather than a hardcoded list of subjects or sets.
 
 The controlled interface is `value`, `onChange`, `suggestion`, `onAcceptSuggestion`, and `onSubmit`, with optional accessible label and placeholder. `SearchValue` keeps committed tokens, the current draft, and an optional edited token ID. `updateDraft` parses/commits drafts; `serializeQuery` and `activeRange` preserve editing position for the endpoint. The demo cycles its empty-state placeholder from broad subjects through combined natural-language ranges, compact modifiers, listing, and portfolio examples; each example slides upward into place. See `src/demo/App.tsx` for the complete adapter. No package publication or generic plug-in framework is required.
 

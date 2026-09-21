@@ -107,10 +107,10 @@ export function suggest<T extends SearchRecord>(
           addCandidate(`${field.aliases[0] ?? field.key}:${value}`, field.priority * 100);
       }
       const operator = typed.match(
-        /^(.*?(?:[:<>=$]|\b(?:about|before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
+        /^(.*?(?:[:<>=$~]|\b(?:about|before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
       )?.[1];
       if (operator) {
-        const separator = /[\s:<>=$]$/.test(operator) ? "" : " ";
+        const separator = /[\s:<>=$~]$/.test(operator) ? "" : " ";
         for (const value of values)
           addCandidate(`${operator}${separator}${value}`, field.priority * 100 + 10);
       }

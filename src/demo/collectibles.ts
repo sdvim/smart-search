@@ -54,7 +54,13 @@ export const collectibleFields: SearchField[] = [
     priority: 5,
   },
   { key: "grader", aliases: ["grader"], kind: "category", priority: 6 },
-  { key: "language", aliases: ["language", "lang"], kind: "category", priority: 7 },
+  {
+    key: "language",
+    aliases: ["language", "lang"],
+    valueAliases: { japanese: "jp", english: "en" },
+    kind: "category",
+    priority: 7,
+  },
   {
     key: "set_number",
     aliases: ["number", "set_number"],

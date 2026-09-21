@@ -12,6 +12,7 @@ export type SearchField = {
   fallbackKeys?: string[];
   presenceKeys?: string[];
   presenceValues?: string[];
+  valueAliases?: Record<string, string>;
   sortAliases?: { asc?: string[]; desc?: string[] };
 };
 
