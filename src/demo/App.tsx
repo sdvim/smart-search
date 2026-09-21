@@ -265,13 +265,13 @@ export function App() {
   function buy(item: Collectible) {
     const purchaseAllowed = canPurchase(item, account.balance, account.owns(item), account.ready);
     account.buy(item);
-    if (purchaseAllowed && headerHidden) setPurchaseRevealKey((key) => key + 1);
+    if (purchaseAllowed) setPurchaseRevealKey((key) => key + 1);
   }
 
   function sell(item: Collectible) {
     const saleAllowed = canSell(item, account.owns(item), account.ready);
     account.sell(item);
-    if (saleAllowed && headerHidden) setPurchaseRevealKey((key) => key + 1);
+    if (saleAllowed) setPurchaseRevealKey((key) => key + 1);
   }
 
   return (
@@ -355,6 +355,7 @@ export function App() {
               onBuy={() => buy(item)}
               onSell={() => sell(item)}
               inDetail={detailId === item.id}
+              detailOpen={detailId !== null}
               owned={account.owns(item)}
               balance={account.balance}
               ready={account.ready}

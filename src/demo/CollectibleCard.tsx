@@ -6,11 +6,13 @@ export function CardImage({
   item,
   eager = false,
   shared = false,
+  transitionClass,
   hidden = false,
 }: {
   item: Collectible;
   eager?: boolean;
   shared?: boolean;
+  transitionClass?: string;
   hidden?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -51,10 +53,13 @@ export function CardImage({
       )}
     </div>
   );
-  return shared ? (
+  return shared || transitionClass ? (
     <ViewTransition
       name={`card-image-${item.id}`}
-      share={{ "detail-navigation": "none", default: "card-image-morph" }}
+      share={{
+        "detail-navigation": transitionClass ?? "none",
+        default: shared ? "card-image-morph" : "none",
+      }}
       default="none"
     >
       {image}
@@ -73,6 +78,7 @@ type Props = {
   balance?: number;
   ready?: boolean;
   inDetail?: boolean;
+  detailOpen?: boolean;
 };
 
 export function CollectibleCard({
@@ -84,6 +90,7 @@ export function CollectibleCard({
   balance = 0,
   ready = false,
   inDetail = false,
+  detailOpen = false,
 }: Props) {
   return (
     <article
@@ -98,7 +105,12 @@ export function CollectibleCard({
         disabled={!onOpen}
         onClick={onOpen}
       >
-        <CardImage key={item.image_url} item={item} shared={!inDetail} hidden={inDetail} />
+        <CardImage
+          key={item.image_url}
+          item={item}
+          shared={!inDetail && !detailOpen}
+          hidden={inDetail}
+        />
       </button>
       <h2 className="card-title" title={item.title}>
         {item.subject}

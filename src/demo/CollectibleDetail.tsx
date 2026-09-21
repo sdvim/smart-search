@@ -173,52 +173,59 @@ export function CollectibleDetail({
           navigate(dx > 0 ? "previous" : "next");
         }}
       >
-        <ViewTransition
-          name="detail-gallery"
-          update={{
-            "detail-navigation": `detail-${direction}`,
-            default: "none",
-          }}
-          default="none"
-        >
-          <div className="detail-slides">
-            {previous ? (
-              <button
-                type="button"
-                className="detail-neighbor detail-previous"
-                aria-label="View previous item"
-                onClick={() => {
-                  if (Date.now() < suppressNeighborClickUntil.current) {
-                    suppressNeighborClickUntil.current = 0;
-                    return;
-                  }
-                  navigate("previous");
-                }}
-              >
-                <CardImage key={previous.id} item={previous} eager />
-              </button>
-            ) : null}
-            <div className="detail-current">
-              <CardImage key={item.id} item={item} eager shared />
-            </div>
-            {next ? (
-              <button
-                type="button"
-                className="detail-neighbor detail-next"
-                aria-label="View next item"
-                onClick={() => {
-                  if (Date.now() < suppressNeighborClickUntil.current) {
-                    suppressNeighborClickUntil.current = 0;
-                    return;
-                  }
-                  navigate("next");
-                }}
-              >
-                <CardImage key={next.id} item={next} eager />
-              </button>
-            ) : null}
+        <div className="detail-slides">
+          {previous ? (
+            <button
+              type="button"
+              className="detail-neighbor detail-previous"
+              aria-label="View previous item"
+              onClick={() => {
+                if (Date.now() < suppressNeighborClickUntil.current) {
+                  suppressNeighborClickUntil.current = 0;
+                  return;
+                }
+                navigate("previous");
+              }}
+            >
+              <CardImage
+                key={previous.id}
+                item={previous}
+                eager
+                transitionClass={`detail-card-${direction}`}
+              />
+            </button>
+          ) : null}
+          <div className="detail-current">
+            <CardImage
+              key={item.id}
+              item={item}
+              eager
+              shared
+              transitionClass={`detail-card-${direction}`}
+            />
           </div>
-        </ViewTransition>
+          {next ? (
+            <button
+              type="button"
+              className="detail-neighbor detail-next"
+              aria-label="View next item"
+              onClick={() => {
+                if (Date.now() < suppressNeighborClickUntil.current) {
+                  suppressNeighborClickUntil.current = 0;
+                  return;
+                }
+                navigate("next");
+              }}
+            >
+              <CardImage
+                key={next.id}
+                item={next}
+                eager
+                transitionClass={`detail-card-${direction}`}
+              />
+            </button>
+          ) : null}
+        </div>
       </div>
       <ViewTransition
         name="detail-information"

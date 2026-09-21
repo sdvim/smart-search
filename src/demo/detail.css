@@ -47,7 +47,8 @@
   animation-duration: 300ms;
   animation-timing-function: var(--detail-ease-in-out);
 }
-::view-transition-group(detail-gallery) {
+::view-transition-group(.detail-card-next),
+::view-transition-group(.detail-card-previous) {
   animation-duration: 280ms;
   animation-timing-function: var(--detail-ease-in-out);
 }
@@ -58,21 +59,29 @@
   mix-blend-mode: normal;
   background: transparent;
 }
-::view-transition-old(.detail-next),
-::view-transition-old(.detail-previous) {
-  animation-duration: 280ms;
+::view-transition-old(.detail-card-next),
+::view-transition-old(.detail-card-previous) {
+  animation-duration: 180ms;
   animation-timing-function: var(--detail-ease-in);
   animation-fill-mode: both;
   mix-blend-mode: normal;
   background: transparent;
 }
-::view-transition-new(.detail-next),
-::view-transition-new(.detail-previous) {
-  animation-duration: 280ms;
+::view-transition-new(.detail-card-next),
+::view-transition-new(.detail-card-previous) {
+  animation-duration: 260ms;
   animation-timing-function: var(--detail-ease-out);
   animation-fill-mode: both;
   mix-blend-mode: normal;
   background: transparent;
+}
+::view-transition-old(.detail-card-next),
+::view-transition-old(.detail-card-previous) {
+  animation-name: detail-card-exit;
+}
+::view-transition-new(.detail-card-next),
+::view-transition-new(.detail-card-previous) {
+  animation-name: detail-card-enter;
 }
 ::view-transition-group(detail-information) {
   animation-duration: 320ms;
@@ -110,36 +119,20 @@
 ::view-transition-new(.detail-content-previous) {
   animation-name: detail-content-enter-left;
 }
-::view-transition-old(.detail-next) {
-  animation-name: detail-exit-left;
-}
-::view-transition-new(.detail-next) {
-  animation-name: detail-enter-right;
-}
-::view-transition-old(.detail-previous) {
-  animation-name: detail-exit-right;
-}
-::view-transition-new(.detail-previous) {
-  animation-name: detail-enter-left;
-}
-@keyframes detail-exit-left {
-  to {
-    transform: translateX(-100%);
-  }
-}
-@keyframes detail-enter-right {
+@keyframes detail-card-enter {
   from {
-    transform: translateX(100%);
+    opacity: 0;
   }
-}
-@keyframes detail-exit-right {
   to {
-    transform: translateX(100%);
+    opacity: 1;
   }
 }
-@keyframes detail-enter-left {
+@keyframes detail-card-exit {
   from {
-    transform: translateX(-100%);
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 @keyframes detail-content-enter-up {

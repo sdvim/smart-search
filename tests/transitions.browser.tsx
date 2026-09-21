@@ -166,11 +166,13 @@ async function gallerySlide(trigger: () => Promise<void>) {
     const transition = start(options);
     captures.push(
       transition.ready.then(() =>
-        viewAnimations().filter((animation) =>
-          /^::view-transition-(old|new)\(detail-gallery\)$/.test(
-            (animation.effect as KeyframeEffect).pseudoElement ?? "",
-          ),
-        ),
+        viewAnimations().filter((animation) => {
+          const pseudoElement = (animation.effect as KeyframeEffect).pseudoElement ?? "";
+          return (
+            /^::view-transition-(group|old|new)\(card-image-/.test(pseudoElement) &&
+            Number(animation.effect!.getTiming().duration) > 0
+          );
+        }),
       ),
     );
     return transition;
@@ -249,32 +251,25 @@ describe("native shared image transitions", () => {
     expect(button.querySelector(".card-image")!.getAttribute("data-loaded")).toBe("true");
   });
 
-  it("slides next and previous galleries in opposite directions and settles on the selected item", async () => {
+  it("transitions only the visible detail cards and settles on the selected item", async () => {
     await renderApp();
     const opening = await imageMorph(0, () => userEvent.click(gridButton(0)));
     await opening.animation.finished;
-    for (const [label, index, direction] of [
-      ["Next", 1, -1],
-      ["Previous", 0, 1],
+    for (const [label, index] of [
+      ["Next", 1],
+      ["Previous", 0],
     ] as const) {
       const animations = await gallerySlide(() =>
         page.getByRole("button", { name: label, exact: true }).click(),
       );
-      for (const snapshot of ["old", "new"]) {
-        const animation = animations.find(
-          (candidate) =>
-            (candidate.effect as KeyframeEffect).pseudoElement ===
-            `::view-transition-${snapshot}(detail-gallery)`,
-        );
-        expect(animation).toBeDefined();
-        const frames = (animation!.effect as KeyframeEffect).getKeyframes();
-        expect([frames[0].transform, frames.at(-1)!.transform]).toEqual(
-          snapshot === "old"
-            ? ["none", `translateX(${direction * 100}%)`]
-            : [`translateX(${-direction * 100}%)`, "none"],
-        );
-        expect(Number(animation!.effect!.getTiming().duration)).toBeGreaterThan(0);
-      }
+      expect(animations.length).toBeGreaterThan(0);
+      expect(
+        animations.every((animation) =>
+          /^::view-transition-(group|old|new)\(card-image-/.test(
+            (animation.effect as KeyframeEffect).pseudoElement ?? "",
+          ),
+        ),
+      ).toBe(true);
       await Promise.all(animations.map((animation) => animation.finished));
       await expect
         .element(page.getByRole("heading", { name: items[index].title, exact: true }))
@@ -373,8 +368,9 @@ describe("native shared image transitions", () => {
           animation: (
             viewAnimations().find(
               (animation) =>
-                (animation.effect as KeyframeEffect).pseudoElement ===
-                "::view-transition-new(detail-gallery)",
+                (animation.effect as KeyframeEffect).pseudoElement?.startsWith(
+                  "::view-transition-new(card-image-",
+                ) && (animation as CSSAnimation).animationName === "detail-card-enter",
             ) as CSSAnimation | undefined
           )?.animationName,
         })),
@@ -390,7 +386,7 @@ describe("native shared image transitions", () => {
       .toBeVisible();
     expect(await slides.at(-1)).toEqual({
       types: ["detail-navigation"],
-      animation: "detail-enter-right",
+      animation: "detail-card-enter",
     });
   });
 
@@ -408,12 +404,24 @@ describe("native shared image transitions", () => {
           durations.push(
             transition.ready.then(() => {
               const type = [...transition.types].find((type) => type.startsWith("detail-"));
-              const pseudos = type
-                ? ["::view-transition-old(detail-gallery)", "::view-transition-new(detail-gallery)"]
-                : [`::view-transition-group(card-image-${items[0].id})`];
-              const values = pseudos.map(
-                (pseudo) => getComputedStyle(document.documentElement, pseudo).animationDuration,
-              );
+              const values = type
+                ? [
+                    ...new Set(
+                      viewAnimations()
+                        .filter((animation) =>
+                          /^::view-transition-(group|old|new)\(card-image-/.test(
+                            (animation.effect as KeyframeEffect).pseudoElement ?? "",
+                          ),
+                        )
+                        .map((animation) => Number(animation.effect!.getTiming().duration)),
+                    ),
+                  ].map((duration) => `${duration / 1000}s`)
+                : [
+                    getComputedStyle(
+                      document.documentElement,
+                      `::view-transition-group(card-image-${items[0].id})`,
+                    ).animationDuration,
+                  ];
               return { type: type ?? "morph", values };
             }),
           );
@@ -443,8 +451,8 @@ describe("native shared image transitions", () => {
       if (mode === "reduced motion")
         expect(await Promise.all(durations)).toEqual([
           { type: "morph", values: ["0s"] },
-          { type: "detail-navigation", values: ["0s", "0s"] },
-          { type: "detail-navigation", values: ["0s", "0s"] },
+          { type: "detail-navigation", values: ["0s"] },
+          { type: "detail-navigation", values: ["0s"] },
           { type: "morph", values: ["0s"] },
         ]);
       expect(document.activeElement).toBe(button);

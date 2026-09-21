@@ -390,7 +390,13 @@ describe("session commerce", () => {
     await expect
       .poll(() => container.querySelector(".demo-header")!.classList.contains("is-hidden"))
       .toBe(false);
-    await new Promise((resolve) => setTimeout(resolve, 1150));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await userEvent.click(article(items[13].id)!.querySelector(".buy-button")!);
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    await expect
+      .poll(() => container.querySelector(".demo-header")!.classList.contains("is-hidden"))
+      .toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 700));
     await expect
       .poll(() => container.querySelector(".demo-header")!.classList.contains("is-hidden"))
       .toBe(true);
