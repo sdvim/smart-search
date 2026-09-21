@@ -341,7 +341,7 @@ describe("real search interaction", () => {
     expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking under $100");
   });
 
-  it("uses bounded left-aligned result columns as the viewport changes", async () => {
+  it("uses full-width bounded left-aligned result columns as the viewport changes", async () => {
     renderApp();
     await ready();
     for (const [width, expected] of [
@@ -363,6 +363,7 @@ describe("real search interaction", () => {
         .toBe(expected);
     }
     expect(getComputedStyle(container.querySelector(".result-grid")!).justifyContent).toBe("start");
+    expect(getComputedStyle(container.querySelector(".result-grid")!).justifyItems).toBe("start");
     expect(
       container.querySelector<HTMLElement>(".collectible-card")!.getBoundingClientRect().width,
     ).toBe(160);

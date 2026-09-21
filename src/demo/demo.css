@@ -71,11 +71,13 @@ button {
   text-align: right;
 }
 .result-grid {
+  --grid-item-width: 180px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, 180px);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--grid-item-width)), 1fr));
   column-gap: 32px;
   row-gap: 32px;
   justify-content: start;
+  justify-items: start;
   transition: opacity 150ms ease;
 }
 .result-grid[data-loading="true"] {
@@ -97,6 +99,7 @@ button {
   cursor: pointer;
 }
 .collectible-card {
+  width: var(--grid-item-width);
   min-width: 0;
   text-align: center;
 }
@@ -267,7 +270,6 @@ body:has(.collectible-detail[open]) .card-open:focus-visible {
     grid-row: 2;
   }
   .result-grid {
-    grid-template-columns: repeat(auto-fill, 180px);
     gap: 32px 24px;
   }
 }
@@ -280,7 +282,7 @@ body:has(.collectible-detail[open]) .card-open:focus-visible {
     gap: 20px;
   }
   .result-grid {
-    grid-template-columns: repeat(auto-fill, 160px);
+    --grid-item-width: 160px;
     gap: 30px 16px;
   }
   .card-image {
