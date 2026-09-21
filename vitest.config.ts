@@ -8,7 +8,7 @@ export default defineConfig({
     projects: [
       { test: { name: "unit", include: ["tests/**/*.test.ts"] } },
       {
-        plugins: [react({ compiler: true }), searchApi()],
+        plugins: [react({ compiler: { logDiagnostics: true } }), searchApi()],
         test: {
           name: "browser",
           include: ["tests/**/*.browser.tsx"],

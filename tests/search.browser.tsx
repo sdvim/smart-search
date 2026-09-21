@@ -3,6 +3,7 @@ import { cdp, page, userEvent } from "vitest/browser";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { StrictMode } from "react";
 import { App } from "../src/demo/App.tsx";
 import { CollectibleCard } from "../src/demo/CollectibleCard.tsx";
 import { card, index, records } from "./fixtures.ts";
@@ -12,6 +13,20 @@ let root: Root;
 const searchbox = () => page.getByRole("searchbox", { name: "Search collectibles" });
 
 beforeEach(async () => {
+  const originalFetch = window.fetch.bind(window);
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+    input === "/api/portfolio"
+      ? Promise.resolve(
+          Response.json({
+            item_count: 0,
+            valued_item_count: 0,
+            total_value: 0,
+            preferences: {},
+            items: [],
+          }),
+        )
+      : originalFetch(input, init),
+  );
   await page.viewport(1280, 832);
   window.history.replaceState(
     window.history.state,
@@ -26,10 +41,17 @@ afterEach(() => {
   flushSync(() => root.unmount());
   container.remove();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 function renderApp() {
-  flushSync(() => root.render(<App />));
+  flushSync(() =>
+    root.render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    ),
+  );
 }
 
 async function ready() {
@@ -173,11 +195,7 @@ describe("real search interaction", () => {
     }
   });
 
-  it.each([
-    [1280, 832],
-    [390, 844],
-  ])("accepts a direct ghost completion with Space at %sx%s", async (width, height) => {
-    await page.viewport(width, height);
+  it("does not accept an unfinished suggestion with Space", async () => {
     renderApp();
     await ready();
     await searchbox().fill("Sla");
@@ -185,17 +203,11 @@ describe("real search interaction", () => {
       .element(page.getByRole("button", { name: "Accept suggestion Slaking", exact: true }))
       .toBeVisible();
     await userEvent.keyboard(" ");
-    await expect.element(searchbox()).toHaveValue("");
-    await expect
-      .element(page.getByRole("button", { name: "Edit Slaking", exact: true }))
-      .toBeVisible();
+    await expect.element(searchbox()).toHaveValue("Sla ");
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
   });
 
-  it.each([
-    [1280, 832],
-    [390, 844],
-  ])("keeps natural numeric suggestions editable after Space at %sx%s", async (width, height) => {
-    await page.viewport(width, height);
+  it("keeps natural numeric suggestions editable after Space", async () => {
     renderApp();
     await ready();
     await searchbox().fill("over");
@@ -211,11 +223,7 @@ describe("real search interaction", () => {
     await expect.element(searchbox()).toHaveValue("over whatever");
   });
 
-  it.each([
-    [1280, 832],
-    [390, 844],
-  ])("chips a recognized draft when Space completes it at %sx%s", async (width, height) => {
-    await page.viewport(width, height);
+  it("chips a recognized draft when Space completes it", async () => {
     renderApp();
     await ready();
     await searchbox().fill("under $100");
@@ -232,39 +240,48 @@ describe("real search interaction", () => {
     ).toEqual(["Edit under $100", "Edit before 2020"]);
   });
 
-  it("commits a recognized draft from iOS-style beforeinput Space", async () => {
+  it("inserts a native Space inside a recognized query without committing", async () => {
     renderApp();
     await ready();
-    await searchbox().fill("Slaking");
+    await searchbox().fill("under $100");
     const input = container.querySelector<HTMLInputElement>("input")!;
-    input.dispatchEvent(
-      new InputEvent("beforeinput", {
-        bubbles: true,
-        cancelable: true,
-        data: " ",
-        inputType: "insertText",
-      }),
-    );
-    await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
-    await expect.element(searchbox()).toHaveValue("");
+    input.setSelectionRange(3, 3);
+    await userEvent.keyboard(" ");
+    await expect.element(searchbox()).toHaveValue("und er $100");
+    expect(input.selectionStart).toBe(4);
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
   });
 
-  it("commits a recognized draft when iOS only reports the input event", async () => {
+  it("keeps the same input and accepts keyboard-free Space after editing a chip", async () => {
     renderApp();
     await ready();
     await searchbox().fill("Slaking");
     const input = container.querySelector<HTMLInputElement>("input")!;
-    input.value = "Slaking ";
-    input.dispatchEvent(
-      new InputEvent("input", {
-        bubbles: true,
-        data: " ",
-        inputType: "insertText",
-      }),
-    );
+    await cdp().send("Input.insertText", { text: " " });
     await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
-    await expect.element(searchbox()).toHaveValue("");
+    await userEvent.keyboard("{Backspace}");
+    await expect.element(searchbox()).toHaveValue("Slaking");
+    expect(container.querySelector("input")).toBe(input);
+    await cdp().send("Input.insertText", { text: " " });
+    await expect.element(page.getByRole("button", { name: "Edit Slaking" })).toBeVisible();
+    expect(container.querySelector("input")).toBe(input);
+    await expect.element(searchbox()).toHaveFocus();
   });
+
+  it.each(["keyboard", "text input"])(
+    "preserves whitespace and incomplete drafts from %s",
+    async (method) => {
+      renderApp();
+      await ready();
+      for (const draft of [" ", " Sla"]) {
+        await searchbox().fill(draft);
+        if (method === "keyboard") await userEvent.keyboard(" ");
+        else await cdp().send("Input.insertText", { text: " " });
+        await expect.element(searchbox()).toHaveValue(`${draft} `);
+        expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
+      }
+    },
+  );
 
   it("syncs committed chips and waits through chip edits", async () => {
     renderApp();
@@ -392,6 +409,34 @@ describe("real search interaction", () => {
     await expect.element(searchbox()).toHaveValue("");
   });
 
+  it("keeps repeated Backspace native when editing the middle of a chip", async () => {
+    renderApp();
+    await ready();
+    await searchbox().fill("Slaking ex");
+    await userEvent.keyboard("{Enter}{Backspace}");
+    await expect.element(searchbox()).toHaveValue("Slaking ex");
+    const input = container.querySelector<HTMLInputElement>("input")!;
+    input.setSelectionRange(3, 3);
+    await cdp().send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: "Backspace",
+      code: "Backspace",
+      windowsVirtualKeyCode: 8,
+      nativeVirtualKeyCode: 8,
+      autoRepeat: true,
+    });
+    await cdp().send("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: "Backspace",
+      code: "Backspace",
+      windowsVirtualKeyCode: 8,
+      nativeVirtualKeyCode: 8,
+    });
+    await expect.element(searchbox()).toHaveValue("Slking ex");
+    expect(input.selectionStart).toBe(2);
+    expect(new URL(window.location.href).searchParams.get("q")).toBe("Slaking ex");
+  });
+
   it("keeps arbitrary text editable instead of forcing the ghost completion", async () => {
     renderApp();
     await ready();
@@ -490,15 +535,59 @@ describe("real search interaction", () => {
     renderApp();
     await ready();
     await searchbox().fill("Slaking");
+    await expect
+      .element(page.getByRole("button", { name: "Accept suggestion Slaking ex" }))
+      .toBeVisible();
     const input = container.querySelector<HTMLInputElement>("input")!;
-    input.setSelectionRange(2, 2);
-    input.dispatchEvent(new Event("select", { bubbles: true }));
-    expect(input.selectionStart).toBe(2);
-    expect(input.selectionEnd).toBe(2);
-    input.setSelectionRange(1, 5);
-    input.dispatchEvent(new Event("select", { bubbles: true }));
-    expect(input.selectionStart).toBe(1);
-    expect(input.selectionEnd).toBe(5);
+    await userEvent.keyboard("{Shift>}{ArrowLeft}{ArrowLeft}{/Shift}");
+    await expect
+      .element(page.getByRole("button", { name: "Accept suggestion Slaking ex" }))
+      .not.toBeInTheDocument();
+    expect(input.selectionStart).toBe(5);
+    expect(input.selectionEnd).toBe(7);
+    await userEvent.keyboard("X");
+    await expect.element(searchbox()).toHaveValue("SlakiX");
+    expect(input.selectionStart).toBe(6);
+    expect(input.selectionEnd).toBe(6);
+  });
+
+  it("selects chips with Cmd/Ctrl+A and supports copy, delete, and replacement paste", async () => {
+    renderApp();
+    await ready();
+    await searchbox().fill("Slaking under $100");
+    await userEvent.keyboard("{Enter}");
+    const input = container.querySelector<HTMLInputElement>("input")!;
+    await searchbox().click();
+    await userEvent.keyboard("{Control>}a{/Control}");
+    expect(
+      [...container.querySelectorAll("[data-chip]")].every(
+        (chip) => chip.getAttribute("data-selected") === "true",
+      ),
+    ).toBe(true);
+
+    const copied = new DataTransfer();
+    input.dispatchEvent(
+      new ClipboardEvent("copy", { bubbles: true, cancelable: true, clipboardData: copied }),
+    );
+    expect(copied.getData("text/plain")).toBe("Slaking under $100");
+
+    await userEvent.keyboard("{Backspace}");
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
+    await searchbox().fill("Slaking under $100");
+    await userEvent.keyboard("{Enter}");
+    await searchbox().click();
+    await userEvent.keyboard("{Control>}a{/Control}");
+    const replacement = new DataTransfer();
+    replacement.setData("text/plain", "not jp");
+    input.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: replacement,
+      }),
+    );
+    await expect.element(searchbox()).toHaveValue("not jp");
+    expect(container.querySelectorAll("[data-chip]")).toHaveLength(0);
   });
 
   it("keeps focus when a touch lands at the end of a draft", async () => {
@@ -606,10 +695,19 @@ describe("real search interaction", () => {
     await ready();
     await searchbox().click();
     const input = container.querySelector("input")!;
-    input.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
-    await searchbox().fill("Slaking ex under $");
+    await cdp().send("Input.imeSetComposition", {
+      text: "Slaking ex",
+      selectionStart: 10,
+      selectionEnd: 10,
+    });
+    await expect.element(searchbox()).toHaveValue("Slaking ex");
     expect(container.querySelectorAll("[data-chip]").length).toBe(0);
-    input.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
+    await cdp().send("Input.insertText", { text: "Slaking ex" });
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true, cancelable: true }),
+    );
+    await expect.element(searchbox()).toHaveValue("Slaking ex");
+    expect(container.querySelectorAll("[data-chip]").length).toBe(0);
     await userEvent.keyboard("{Enter}");
     await expect
       .element(page.getByRole("button", { name: "Edit Slaking ex", exact: true }))
@@ -696,18 +794,29 @@ describe("asynchronous boundaries", () => {
     await expect.poll(() => container.querySelector(".card-placeholder")).not.toBeNull();
   });
 
-  it("renders the placeholder and a Buy button that only changes on hover", async () => {
-    flushSync(() => root.render(<CollectibleCard item={card("buy", { listed_value: 25 })} />));
+  it("renders the placeholder and an enabled Buy button with a client callback", async () => {
+    const buy = vi.fn();
+    flushSync(() =>
+      root.render(
+        <CollectibleCard
+          item={card("buy", { listed_value: 25 })}
+          balance={100}
+          ready
+          onBuy={buy}
+        />,
+      ),
+    );
     expect(container.querySelector(".card-placeholder")).not.toBeNull();
     const button = page.getByRole("button", { name: "Buy for $25.00" });
-    const background = getComputedStyle(container.querySelector("button")!).backgroundColor;
+    const background = getComputedStyle(container.querySelector(".buy-button")!).backgroundColor;
     await button.hover();
     await expect
-      .poll(() => getComputedStyle(container.querySelector("button")!).backgroundColor)
+      .poll(() => getComputedStyle(container.querySelector(".buy-button")!).backgroundColor)
       .not.toBe(background);
     const location = window.location.href;
     const requests = vi.spyOn(window, "fetch");
     await button.click();
+    expect(buy).toHaveBeenCalledOnce();
     expect(window.location.href).toBe(location);
     expect(requests).not.toHaveBeenCalled();
   });

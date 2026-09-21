@@ -30,6 +30,10 @@ export const collectibleFields: SearchField[] = [
     inference: "price",
     currency: true,
     fallbackKeys: ["listed_value", "fair_market_value"],
+    sortAliases: {
+      asc: ["cheapest", "low to high"],
+      desc: ["most expensive", "high to low"],
+    },
     priority: 1,
   },
   { key: "grade", aliases: ["grade", "g"], kind: "number", inference: "grade", priority: 2 },
@@ -65,6 +69,7 @@ export const collectibleFields: SearchField[] = [
     inference: "certificate",
     priority: 10,
   },
+  { key: "ownership", aliases: ["ownership"], kind: "category", priority: 11 },
 ];
 
 export const demoUser = { wallet_balance: 398.28 };

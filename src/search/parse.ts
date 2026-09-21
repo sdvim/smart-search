@@ -1,6 +1,9 @@
-import { readNumber } from "./numeric.ts";
-import { normalize } from "./types.ts";
+import { comparisonSource, numericKeywords, readNumber } from "./numeric.ts";
+import { normalize, normalizedPrefixLength } from "./types.ts";
 import type { ParsedQuery, QueryToken, SearchDictionary, SearchField } from "./types.ts";
+
+const comparisonPrefix = new RegExp(`^(${comparisonSource})\\s+`, "i");
+const pendingComparison = new RegExp(`^(?:${comparisonSource})\\s*\\$?$`, "i");
 
 function categoricalToken(field: SearchField, value: string, text: string): QueryToken {
   return {
@@ -12,6 +15,36 @@ function categoricalToken(field: SearchField, value: string, text: string): Quer
     label: value,
     compactLabel: value,
   };
+}
+
+function readSort(input: string, dictionary: SearchDictionary) {
+  const normalized = normalize(input);
+  for (const field of dictionary.fields) {
+    for (const direction of ["asc", "desc"] as const) {
+      for (const alias of field.sortAliases?.[direction] ?? []) {
+        const keyword = normalize(alias);
+        if (
+          normalized !== keyword &&
+          !normalized.startsWith(`${keyword} `) &&
+          !normalized.startsWith(`${keyword},`)
+        )
+          continue;
+        const length = normalizedPrefixLength(input, keyword);
+        const token: QueryToken = {
+          id: "",
+          field: field.key,
+          operator: "sort",
+          values: [],
+          direction,
+          text: input.slice(0, length),
+          label: alias,
+          compactLabel: alias,
+        };
+        return { length, token };
+      }
+    }
+  }
+  return null;
 }
 
 function readIdentifier(input: string, dictionary: SearchDictionary, explicit?: SearchField) {
@@ -46,12 +79,31 @@ function readIdentifier(input: string, dictionary: SearchDictionary, explicit?: 
   };
 }
 
-function readClause(input: string, dictionary: SearchDictionary) {
+function readClause(
+  input: string,
+  dictionary: SearchDictionary,
+): { length: number; token: QueryToken } | null {
+  const negation = input.match(/^(?:not\s+|-(?=[\p{L}_]))/iu);
+  if (negation) {
+    const positive = readClause(input.slice(negation[0].length), dictionary);
+    if (!positive || positive.token.operator === "sort") return null;
+    const prefix = /^not/i.test(negation[0]) ? "not " : "-";
+    return {
+      length: negation[0].length + positive.length,
+      token: {
+        ...positive.token,
+        negated: true,
+        text: input.slice(0, negation[0].length + positive.length),
+        label: `${prefix}${positive.token.label}`,
+        compactLabel: `${prefix}${positive.token.compactLabel}`,
+      },
+    };
+  }
+  const sort = readSort(input, dictionary);
+  if (sort) return sort;
   let explicit: SearchField | undefined;
   let prefix = "";
-  const modifier = input.match(
-    /^(no less than|no more than|greater than|less than|more than|fewer than|higher than|lower than|at least|at most|earlier than|later than|prior to|before|after|under|below|over|above|up to|since)\s+/i,
-  );
+  const modifier = input.match(comparisonPrefix);
   const clauseInput = modifier ? input.slice(modifier[0].length) : input;
   const named = clauseInput.match(/^([\p{L}_]+)\s*:\s*/u);
   if (named) {
@@ -72,7 +124,7 @@ function readClause(input: string, dictionary: SearchDictionary) {
   }
   const rest = clauseInput.slice(prefix.length);
   if (!rest) return null;
-  if (!explicit || explicit.kind === "identifier") {
+  if (!modifier && (!explicit || explicit.kind === "identifier")) {
     const identifier = readIdentifier(rest, dictionary, explicit);
     if (identifier)
       return {
@@ -82,7 +134,7 @@ function readClause(input: string, dictionary: SearchDictionary) {
     if (explicit?.kind === "identifier") return null;
   }
   if (!explicit || explicit.kind === "number") {
-    const numericInput = modifier ? `${modifier[1]} ${rest}` : rest;
+    const numericInput = modifier ? modifier[0] + rest : rest;
     const numeric = readNumber(numericInput, dictionary, explicit);
     if (numeric)
       return {
@@ -91,6 +143,7 @@ function readClause(input: string, dictionary: SearchDictionary) {
       };
     if (explicit?.kind === "number") return null;
   }
+  if (modifier) return null;
   const normalized = normalize(rest);
   const entry = dictionary.entries.find(
     (entry) =>
@@ -101,8 +154,7 @@ function readClause(input: string, dictionary: SearchDictionary) {
   );
   if (!entry) return null;
   const field = dictionary.fields.find((field) => field.key === entry.field)!;
-  const words = entry.normalized.split(" ").length;
-  const raw = rest.match(new RegExp(`^\\S+(?:\\s+\\S+){${words - 1}}`))![0].replace(/,$/, "");
+  const raw = rest.slice(0, normalizedPrefixLength(rest, entry.normalized));
   return {
     length: prefix.length + raw.length,
     token: categoricalToken(field, entry.value, prefix + raw),
@@ -129,40 +181,19 @@ export function parseQuery(query: string, dictionary: SearchDictionary): ParsedQ
     [field.key, ...field.aliases].includes(normalize(prefix?.[1] ?? normalized)),
   );
   const argument = prefix && field ? rest.slice(prefix[0].length).trim() : rest;
-  const keywords = [
-    "from",
-    "between",
-    "before",
-    "after",
-    "under",
-    "below",
-    "over",
-    "above",
-    "at least",
-    "at most",
-    "no less than",
-    "no more than",
-    "more than",
-    "less than",
-    "fewer than",
-    "greater than",
-    "higher than",
-    "lower than",
-    "earlier than",
-    "later than",
-    "prior to",
-    "up to",
-    "since",
-  ];
+  const pendingArgument = argument.replace(/^(?:not\s+|-(?=[\p{L}_]))/iu, "");
   const numericTail = /^(?:(?:from|between)\s+)?\$?\d+(?:\.\d+)?\s*(?:[-–]|to|and)\s*\$?$/i.test(
-    argument,
+    pendingArgument,
   );
   const pending =
-    keywords.some((keyword) => keyword.startsWith(normalize(argument))) ||
-    /^(?:no less than|no more than|greater than|less than|more than|fewer than|higher than|lower than|at least|at most|earlier than|later than|prior to|before|after|under|below|over|above|up to|since)\s*\$?$/i.test(
-      argument,
+    numericKeywords.some((keyword) => keyword.startsWith(normalize(pendingArgument))) ||
+    dictionary.fields.some((field) =>
+      Object.values(field.sortAliases ?? {})
+        .flat()
+        .some((alias) => normalize(alias).startsWith(normalized)),
     ) ||
-    /^[<>=$#]+$/.test(argument) ||
+    pendingComparison.test(pendingArgument) ||
+    /^[<>=$#]+$/.test(pendingArgument) ||
     numericTail ||
     (!!field && !argument);
   return { tokens, draft: rest, pending: !!rest && pending };

@@ -4,15 +4,17 @@ import type { QueryToken } from "../search/types.ts";
 type Props = {
   token: QueryToken;
   layout?: { compact: boolean; width: number };
+  selected?: boolean;
   onEdit: () => void;
   onRemove: () => void;
 };
 
-export function SearchChip({ token, layout, onEdit, onRemove }: Props) {
+export function SearchChip({ token, layout, selected = false, onEdit, onRemove }: Props) {
   return (
     <span
       className="search-chip"
       data-chip={token.id}
+      data-selected={selected}
       data-compact={layout?.compact ?? false}
       style={layout ? { width: layout.width } : undefined}
     >

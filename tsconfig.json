@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "types": ["node", "vite/client", "@vitest/browser-playwright"]
   },
-  "include": ["src", "server", "scripts", "tests", "*.config.ts"]
+  "include": ["src", "server", "scripts", "tests", "netlify", "*.config.ts"]
 }

@@ -46,6 +46,27 @@ button {
   margin: 0;
   white-space: nowrap;
 }
+.portfolio {
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.portfolio:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+.portfolio:disabled {
+  cursor: default;
+}
+.portfolio strong,
+.wallet strong {
+  font-variant-numeric: tabular-nums;
+}
 .wallet {
   text-align: right;
 }
@@ -78,6 +99,26 @@ button {
   min-width: 0;
   text-align: center;
 }
+.card-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.card-open:disabled {
+  cursor: default;
+}
+.card-open:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+.collectible-card.is-detail-active .card-open {
+  outline: none;
+}
 .card-image {
   position: relative;
   width: 140px;
@@ -103,10 +144,15 @@ button {
 .card-image[data-loaded="true"] .card-photo {
   opacity: 1;
 }
+.card-photo.is-eager {
+  opacity: 1;
+  transition: none;
+}
 .card-placeholder {
   opacity: 0.45;
 }
-.collectible-card h2 {
+.card-title {
+  display: block;
   font-size: 14px;
   line-height: 20px;
   font-weight: 400;
@@ -132,12 +178,43 @@ button {
   cursor: pointer;
   transition:
     color 120ms ease,
-    background 120ms ease;
+    background 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease;
 }
-.buy-button:hover,
-.buy-button:focus-visible {
+.buy-button:not(:disabled):hover,
+.buy-button:not(:disabled):focus-visible {
   background: var(--ink);
   color: var(--paper);
+}
+.buy-button.owned-button {
+  opacity: 0.5;
+}
+.buy-button.owned-button .sell-label {
+  display: none;
+}
+.buy-button.owned-button:not(:disabled):hover,
+.buy-button.owned-button:not(:disabled):focus-visible {
+  border-color: #c62828;
+  background: transparent;
+  color: #c62828;
+  opacity: 1;
+}
+.buy-button.owned-button:not(:disabled):hover .owned-label,
+.buy-button.owned-button:not(:disabled):focus-visible .owned-label {
+  display: none;
+}
+.buy-button.owned-button:not(:disabled):hover .sell-label,
+.buy-button.owned-button:not(:disabled):focus-visible .sell-label {
+  display: inline;
+}
+.buy-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.buy-button.estimated-value {
+  border-color: transparent;
+  margin-inline: auto;
 }
 .buy-button:focus-visible {
   outline: 2px solid var(--ink);
@@ -194,7 +271,7 @@ button {
     width: 132px;
     height: 223px;
   }
-  .collectible-card h2 {
+  .card-title {
     font-size: 13px;
   }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent } from "react";
+import type { ClipboardEvent, KeyboardEvent, PointerEvent } from "react";
 import { Search, X } from "lucide-react";
 import { emptySearch, serializeQuery } from "../search/types.ts";
 import type { SearchSuggestion, SearchValue } from "../search/types.ts";
@@ -12,7 +12,7 @@ export type SmartSearchBarProps = {
   onChange: (value: SearchValue, isComposing?: boolean) => void;
   suggestion: SearchSuggestion | null;
   onAcceptSuggestion: (suggestion: SearchSuggestion) => void;
-  onSubmit: () => boolean | void;
+  onSubmit: (draft?: string) => boolean | void;
   ariaLabel?: string;
   placeholder?: string;
 };
@@ -34,14 +34,13 @@ export function SmartSearchBar({
     y: number;
     scroll: number;
     mode: "accept" | "pan";
-    moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
   const composing = useRef(false);
-  const spaceCommit = useRef<() => boolean>(() => false);
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [atEnd, setAtEnd] = useState(true);
+  const [allSelected, setAllSelected] = useState(false);
   const descriptionId = useId();
   const query = serializeQuery(value);
   const revision = `${query}:${value.editingId ?? ""}`;
@@ -80,92 +79,39 @@ export function SmartSearchBar({
 
   function accept() {
     if (!visibleSuggestion || composing.current) return;
+    setAllSelected(false);
     onAcceptSuggestion(visibleSuggestion);
-    focusInput();
   }
-
-  function commitSpace() {
-    if (
-      visibleSuggestion &&
-      value.draft.trim() &&
-      !/\s$/.test(value.draft) &&
-      !/^\s/.test(visibleSuggestion.suffix)
-    ) {
-      accept();
-      return true;
-    }
-    return Boolean(onSubmit());
-  }
-
-  useEffect(() => {
-    spaceCommit.current = commitSpace;
-  });
-
-  useEffect(() => {
-    const element = input.current;
-    if (!element) return;
-    const handleBeforeInput = (event: InputEvent) => {
-      if (
-        event.inputType === "insertText" &&
-        event.data !== null &&
-        /^\s$/.test(event.data) &&
-        !composing.current &&
-        spaceCommit.current()
-      )
-        event.preventDefault();
-    };
-    const handleInput = (event: Event) => {
-      const inputEvent = event as InputEvent;
-      if (
-        inputEvent.data !== null &&
-        /^\s$/.test(inputEvent.data) &&
-        !composing.current &&
-        element.value.endsWith(inputEvent.data) &&
-        spaceCommit.current()
-      ) {
-        element.value = element.value.slice(0, -inputEvent.data.length);
-        event.stopImmediatePropagation();
-      }
-    };
-    element.addEventListener("beforeinput", handleBeforeInput);
-    element.addEventListener("input", handleInput);
-    return () => {
-      element.removeEventListener("beforeinput", handleBeforeInput);
-      element.removeEventListener("input", handleInput);
-    };
-  }, []);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (composing.current || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+      return;
+    const selection = selectionOf(event.currentTarget);
+    const atEnd = selection.start === selection.length && selection.end === selection.length;
     const isSpace = event.key === " " || event.key === "Spacebar" || event.code === "Space";
-    if (
-      isSpace &&
-      !composing.current &&
-      !event.shiftKey &&
-      !event.altKey &&
-      !event.ctrlKey &&
-      !event.metaKey &&
-      (value.draft || value.editingId)
-    ) {
-      if (commitSpace()) event.preventDefault();
-      else {
-        event.preventDefault();
-        const selection = input.current
-          ? selectionOf(input.current)
-          : { start: value.draft.length, end: value.draft.length };
-        onChange({
-          ...value,
-          draft: `${value.draft.slice(0, selection.start)} ${value.draft.slice(selection.end)}`,
-        });
-        requestAnimationFrame(() => {
-          if (!input.current) return;
-          const position = Math.min(selection.start + 1, input.current.value.length);
-          input.current.setSelectionRange(position, position);
-        });
-      }
+    const key = event.key.toLowerCase();
+    if ((event.metaKey || event.ctrlKey) && !event.altKey && key === "a") {
+      event.preventDefault();
+      setAllSelected(true);
+      event.currentTarget.select();
       return;
     }
-    if (composing.current || event.nativeEvent.isComposing) return;
-    const selection = input.current ? selectionOf(input.current) : null;
+    if (allSelected && (event.key === "Backspace" || event.key === "Delete")) {
+      event.preventDefault();
+      setAllSelected(false);
+      onChange(emptySearch);
+      focusInput(true);
+      return;
+    }
+    if (
+      allSelected &&
+      !((event.metaKey || event.ctrlKey) && !event.altKey && (key === "c" || key === "x"))
+    )
+      setAllSelected(false);
+    if (isSpace && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && atEnd) {
+      if (onSubmit(value.draft)) event.preventDefault();
+      return;
+    }
     if (
       event.key === "ArrowRight" &&
       !event.shiftKey &&
@@ -173,9 +119,7 @@ export function SmartSearchBar({
       !event.ctrlKey &&
       !event.metaKey &&
       visibleSuggestion &&
-      selection &&
-      selection.start === selection.length &&
-      selection.end === selection.length
+      atEnd
     ) {
       event.preventDefault();
       accept();
@@ -193,9 +137,9 @@ export function SmartSearchBar({
       event.preventDefault();
       onSubmit();
     }
-    const atStart = selection?.start === 0 && selection?.end === 0;
+    const atStart = selection.start === 0 && selection.end === 0;
     const wordModifier = event.altKey || event.ctrlKey || event.metaKey;
-    if (event.key === "Backspace" && value.editingId && (!value.draft || event.repeat)) {
+    if (event.key === "Backspace" && value.editingId && (!value.draft || (event.repeat && atEnd))) {
       event.preventDefault();
       onChange({
         ...value,
@@ -203,7 +147,6 @@ export function SmartSearchBar({
         draft: "",
         editingId: null,
       });
-      focusInput();
       return;
     }
     if (
@@ -218,11 +161,11 @@ export function SmartSearchBar({
           ? { ...value, tokens: value.tokens.slice(0, -1) }
           : { ...value, editingId: value.tokens.at(-1)!.id, draft: value.tokens.at(-1)!.text },
       );
-      focusInput();
     }
   }
 
   function pointerDown(event: PointerEvent<HTMLDivElement>) {
+    setAllSelected(false);
     suppressClick.current = false;
     const target = event.target as Element;
     const editor = target.closest("[data-editor]");
@@ -236,7 +179,6 @@ export function SmartSearchBar({
       y: event.clientY,
       scroll: event.currentTarget.scrollLeft,
       mode: touch && visibleSuggestion && !chip ? "accept" : "pan",
-      moved: false,
     };
   }
 
@@ -245,9 +187,11 @@ export function SmartSearchBar({
     if (!start) return;
     const dx = event.clientX - start.x;
     if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(event.clientY - start.y) * 1.15) return;
-    start.moved = true;
     suppressClick.current = true;
-    if (start.mode === "pan") event.currentTarget.scrollLeft = start.scroll - dx;
+    if (start.mode === "pan") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.scrollLeft = start.scroll - dx;
+    }
   }
 
   function pointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -259,6 +203,19 @@ export function SmartSearchBar({
       event.clientX - start.x > Math.abs(event.clientY - start.y) * 1.15
     )
       accept();
+  }
+
+  function replaceSelectedText(text: string) {
+    setAllSelected(false);
+    onChange({ ...emptySearch, draft: text });
+    focusInput();
+  }
+
+  function copySelected(event: ClipboardEvent<HTMLInputElement>, cut = false) {
+    if (!allSelected) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", query);
+    if (cut) replaceSelectedText("");
   }
 
   const editor = (
@@ -282,15 +239,32 @@ export function SmartSearchBar({
           placeholder={isEmpty && !visibleSuggestion ? placeholder : ""}
           onChange={(event) => {
             const selection = selectionOf(event.target);
-            setAtEnd(
-              !composing.current &&
-                selection.start === selection.length &&
-                selection.end === selection.length,
-            );
-            onChange({ ...value, draft: event.target.value }, composing.current);
+            const nativeEvent = event.nativeEvent as InputEvent;
+            const isComposing = composing.current || nativeEvent.isComposing;
+            const atEnd =
+              selection.start === selection.length && selection.end === selection.length;
+            const draft = event.target.value;
+            setAtEnd(!isComposing && atEnd);
+            if (allSelected) {
+              replaceSelectedText(draft);
+              return;
+            }
+            if (
+              !isComposing &&
+              atEnd &&
+              nativeEvent.inputType === "insertText" &&
+              nativeEvent.data !== null &&
+              /^\s$/.test(nativeEvent.data) &&
+              draft.endsWith(nativeEvent.data) &&
+              onSubmit(draft.slice(0, -nativeEvent.data.length))
+            )
+              return;
+            onChange({ ...value, draft }, isComposing);
           }}
           onSelect={(event) => {
             const selection = selectionOf(event.currentTarget);
+            if (allSelected && !(selection.start === 0 && selection.end === selection.length))
+              setAllSelected(false);
             setAtEnd(
               !composing.current &&
                 selection.start === selection.length &&
@@ -298,13 +272,21 @@ export function SmartSearchBar({
             );
           }}
           onKeyDown={onKeyDown}
+          onCopy={(event) => copySelected(event)}
+          onCut={(event) => copySelected(event, true)}
+          onPaste={(event) => {
+            if (!allSelected) return;
+            event.preventDefault();
+            replaceSelectedText(event.clipboardData.getData("text/plain"));
+          }}
           onCompositionStart={() => {
             composing.current = true;
             setAtEnd(false);
           }}
           onCompositionEnd={(event) => {
             composing.current = false;
-            setAtEnd(true);
+            const selection = selectionOf(event.currentTarget);
+            setAtEnd(selection.start === selection.length && selection.end === selection.length);
             onChange({ ...value, draft: event.currentTarget.value });
           }}
         />
@@ -348,7 +330,10 @@ export function SmartSearchBar({
       }}
       onFocusCapture={() => setFocused(true)}
       onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocused(false);
+          setAllSelected(false);
+        }
       }}
     >
       <div
@@ -369,29 +354,34 @@ export function SmartSearchBar({
       >
         <div className="search-track">
           <Search className="search-icon" aria-hidden="true" />
-          {value.tokens.map((token) =>
-            token.id === value.editingId ? (
-              editor
-            ) : (
-              <SearchChip
-                key={token.id}
-                token={token}
-                layout={layout[token.id]}
-                onEdit={() => {
-                  onChange({ ...value, editingId: token.id, draft: token.text });
-                  focusInput();
-                }}
-                onRemove={() => {
-                  onChange({
-                    ...value,
-                    tokens: value.tokens.filter((item) => item.id !== token.id),
-                  });
-                  focusInput();
-                }}
-              />
+          {[
+            ...value.tokens.map((token) =>
+              token.id === value.editingId ? (
+                editor
+              ) : (
+                <SearchChip
+                  key={token.id}
+                  token={token}
+                  layout={layout[token.id]}
+                  selected={allSelected}
+                  onEdit={() => {
+                    setAllSelected(false);
+                    onChange({ ...value, editingId: token.id, draft: token.text });
+                    focusInput();
+                  }}
+                  onRemove={() => {
+                    setAllSelected(false);
+                    onChange({
+                      ...value,
+                      tokens: value.tokens.filter((item) => item.id !== token.id),
+                    });
+                    focusInput();
+                  }}
+                />
+              ),
             ),
-          )}
-          {!value.editingId ? editor : null}
+            ...(!value.editingId ? [editor] : []),
+          ]}
         </div>
       </div>
       {!isEmpty ? (
@@ -400,6 +390,7 @@ export function SmartSearchBar({
           type="button"
           aria-label="Clear search"
           onClick={() => {
+            setAllSelected(false);
             onChange(emptySearch);
             focusInput();
           }}
@@ -426,8 +417,8 @@ export function SmartSearchBar({
         </span>
       </div>
       <span id={descriptionId} className="visually-hidden">
-        Tab or Space commits a recognized query. Swipe right to accept a suggestion. Escape
-        dismisses it. Right-arrow movement at the end accepts a suggestion. Drag chips to scroll.
+        Enter or Space confirms the typed query. Tab, Right Arrow at the end, or swiping right
+        accepts a suggestion. Escape dismisses it. Drag chips to scroll.
       </span>
       <output className="visually-hidden">
         {visibleSuggestion ? `Suggestion: ${visibleSuggestion.text}` : ""}

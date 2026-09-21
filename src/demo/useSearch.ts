@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { activeRange, serializeQuery } from "../search/types.ts";
 import type {
   SearchContext,
@@ -22,6 +22,11 @@ type SearchResult = SearchResponse<Collectible> & {
   has_more: boolean;
 };
 
+export type SearchOwnership = {
+  purchasedIds?: string[];
+  soldIds?: string[];
+};
+
 function normalizeResult(result: SearchResponse<Collectible>, page: number): SearchResult {
   return {
     items: result.items ?? [],
@@ -43,23 +48,41 @@ function requestPage(requestBody: string, page: number, signal: AbortSignal) {
   }).then(readResponse<SearchResponse<Collectible>>);
 }
 
-export function useSearch(value: SearchValue, user: SearchContext) {
+export function useSearch(
+  value: SearchValue,
+  user: SearchContext,
+  ownership: SearchOwnership | string[] = {},
+) {
   const [dictionary, setDictionary] = useState<SearchDictionary | null>(null);
   const [dictionaryError, setDictionaryError] = useState(false);
   const [response, setResponse] = useState<{
     key: string;
     data: SearchResult;
+    loadingMore?: boolean;
+    loadMoreError?: boolean;
   } | null>(null);
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
-  const [loadingMoreKey, setLoadingMoreKey] = useState<string | null>(null);
-  const [loadMoreErrorKey, setLoadMoreErrorKey] = useState<string | null>(null);
-  const loadingMoreRef = useRef(false);
   const moreRequest = useRef<AbortController | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const query = serializeQuery(value);
   const range = activeRange(value);
-  const requestBody = JSON.stringify({ query, active_range: range, user });
-  const key = `${requestBody}:${retryCount}`;
+  const ownershipIds = useMemo(
+    () =>
+      Array.isArray(ownership)
+        ? { purchasedIds: ownership, soldIds: [] }
+        : { purchasedIds: ownership.purchasedIds ?? [], soldIds: ownership.soldIds ?? [] },
+    [ownership],
+  );
+  const { purchasedIds, soldIds } = ownershipIds;
+  const requestInputKey = JSON.stringify({ query, active_range: range, user });
+  const requestCaptureKey = `${requestInputKey}:${retryCount}`;
+  const latestInput = useRef({ query, range, user, purchasedIds, soldIds });
+  const request = useRef<{ key: string; body: string } | null>(null);
+  const key = requestCaptureKey;
+
+  useEffect(() => {
+    latestInput.current = { query, range, user, ...ownershipIds };
+  }, [query, range, user, ownershipIds]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -79,10 +102,16 @@ export function useSearch(value: SearchValue, user: SearchContext) {
   }, [retryCount]);
 
   useEffect(() => {
-    moreRequest.current?.abort();
-    moreRequest.current = null;
-    loadingMoreRef.current = false;
     const controller = new AbortController();
+    const { query, range, user, purchasedIds, soldIds } = latestInput.current;
+    const requestBody = JSON.stringify({
+      query,
+      active_range: range,
+      user,
+      purchased_ids: [...purchasedIds],
+      sold_ids: [...soldIds],
+    });
+    request.current = { key, body: requestBody };
     const timeout = setTimeout(async () => {
       try {
         const result = await requestPage(requestBody, 0, controller.signal);
@@ -98,26 +127,23 @@ export function useSearch(value: SearchValue, user: SearchContext) {
     return () => {
       clearTimeout(timeout);
       controller.abort();
+      moreRequest.current?.abort();
+      moreRequest.current = null;
     };
-  }, [requestBody, key]);
+  }, [key]);
 
-  const loadMore = useCallback(() => {
-    if (
-      loadingMoreRef.current ||
-      response?.key !== key ||
-      !response.data.has_more ||
-      response.data.page_size !== resultPageSize
-    )
-      return;
-    loadingMoreRef.current = true;
-    setLoadingMoreKey(key);
-    setLoadMoreErrorKey(null);
+  function loadMore() {
+    if (moreRequest.current || response?.key !== key || !response.data.has_more) return;
+    const requestBody = request.current?.key === key ? request.current.body : null;
+    if (!requestBody) return;
     const controller = new AbortController();
     moreRequest.current = controller;
+    setResponse({ ...response, loadingMore: true, loadMoreError: false });
     const page = response.data.page + 1;
     requestPage(requestBody, page, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return;
+        moreRequest.current = null;
         setResponse((previous) => {
           if (!previous || previous.key !== key) return previous;
           const existing = new Set(previous.data.items.map((item) => item.id));
@@ -133,32 +159,32 @@ export function useSearch(value: SearchValue, user: SearchContext) {
         });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setLoadMoreErrorKey(key);
-      })
-      .finally(() => {
         if (controller.signal.aborted) return;
-        loadingMoreRef.current = false;
         moreRequest.current = null;
-        setLoadingMoreKey((currentKey) => (currentKey === key ? null : currentKey));
+        setResponse((previous) =>
+          previous?.key === key
+            ? { ...previous, loadingMore: false, loadMoreError: true }
+            : previous,
+        );
       });
-  }, [key, requestBody, response]);
+  }
 
   const error = dictionaryError
     ? "Search vocabulary could not load. Please try again."
     : failure?.key === key
       ? failure.message
       : null;
-  const current = response?.key === key ? response.data : null;
-  const loadingMore = loadingMoreKey === key && current !== null;
+  const current = response?.key === key ? response : null;
+  const displayed = response?.data;
   return {
     dictionary,
-    items: current?.items ?? [],
-    total: current?.total ?? 0,
-    suggestion: current && !error ? current.suggestion : null,
+    items: displayed?.items ?? [],
+    total: displayed?.total ?? 0,
+    suggestion: current && !error ? current.data.suggestion : null,
     loading: response?.key !== key && !error,
-    loadingMore,
-    loadMoreError: current ? loadMoreErrorKey === key : false,
-    hasMore: Boolean(current?.has_more),
+    loadingMore: Boolean(current?.loadingMore),
+    loadMoreError: Boolean(current?.loadMoreError),
+    hasMore: Boolean(current?.data.has_more),
     loadMore,
     error,
     retry: () => setRetryCount((count) => count + 1),

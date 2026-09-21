@@ -17,6 +17,9 @@ describe("numeric grammar", () => {
     ["after 2010", "year", "gt", [2010]],
     ["at least grade 5", "grade", "gte", [5]],
     ["at least year 2010", "year", "gte", [2010]],
+    ["under  $100", "price", "lt", [100]],
+    ["at least  grade 5", "grade", "gte", [5]],
+    ["at\u00a0least\u00a0year 2010", "year", "gte", [2010]],
     ["under $100.00", "price", "lt", [100]],
     ["<$100", "price", "lt", [100]],
     ["between $100 and $1000", "price", "range", [100, 1000]],
@@ -37,7 +40,7 @@ describe("numeric grammar", () => {
     ["earlier than 2010", "year", "lt", [2010]],
     ["later than 2010", "year", "gt", [2010]],
     ["prior to 2010", "year", "lt", [2010]],
-    ["since 2010", "year", "gt", [2010]],
+    ["since 2010", "year", "gte", [2010]],
     ["year:2000", "year", "eq", [2000]],
     ["y:2000", "year", "eq", [2000]],
     ["y:2000+", "year", "gte", [2000]],
@@ -63,6 +66,23 @@ describe("numeric grammar", () => {
     expect(parsed.tokens[0]).toMatchObject({ field, operator, values });
   });
 
+  it("formats currency chips with grouping while preserving entered cents", () => {
+    const whole = parseQuery("under $10000", index.dictionary).tokens[0];
+    const cents = parseQuery("under $10000.00", index.dictionary).tokens[0];
+    const range = parseQuery("between $10000.00 and $25000", index.dictionary).tokens[0];
+    expect(whole).toMatchObject({ label: "under $10,000", compactLabel: "<$10,000" });
+    expect(cents).toMatchObject({ label: "under $10,000.00", compactLabel: "<$10,000.00" });
+    expect(range).toMatchObject({
+      label: "from $10,000.00 to $25,000",
+      compactLabel: "$10,000.00–$25,000",
+    });
+    expect(parseQuery("6112069161", index.dictionary).tokens[0]).toMatchObject({
+      field: "grader_cert_id",
+      label: "#6112069161",
+      compactLabel: "#6112069161",
+    });
+  });
+
   it.each(["2010-2000", "from 2010 to 2000", "between 2010 and 2000"])(
     "sorts backwards: %s",
     (query) => {
@@ -84,6 +104,15 @@ describe("numeric grammar", () => {
         (record) => record.id,
       ),
     ).toEqual(["b", "c", "e"]);
+  });
+
+  it("includes the named year for since but excludes it for after", () => {
+    expect(
+      filterRecords(index, parseQuery("since 2010", index.dictionary)).map((record) => record.id),
+    ).toEqual(["b", "d"]);
+    expect(
+      filterRecords(index, parseQuery("after 2010", index.dictionary)).map((record) => record.id),
+    ).toEqual(["d"]);
   });
 
   it.each([
@@ -175,6 +204,11 @@ describe("identifiers, context and drafts", () => {
       ),
     ).toEqual(["e"]);
   });
+  it("preserves adjacent categorical clauses separated by a comma", () => {
+    const parsed = parseQuery("Slaking,CGC", index.dictionary);
+    expect(parsed.tokens.map((token) => token.text)).toEqual(["Slaking", "CGC"]);
+    expect(filterRecords(index, parsed).map((record) => record.id)).toEqual(["d"]);
+  });
   it.each(["g:", "grade:", "under $", "between $100 and", "from 2000 to", "year:2000-"])(
     "retains incomplete expressions: %s",
     (query) => {
@@ -184,8 +218,21 @@ describe("identifiers, context and drafts", () => {
       expect(parsed.pending).toBe(true);
     },
   );
+  it.each(["not about", "-under $"])("retains incomplete negated expressions: %s", (query) => {
+    const parsed = parseQuery(query, index.dictionary);
+    expect(parsed.tokens).toHaveLength(0);
+    expect(parsed.draft).toBe(query);
+    expect(parsed.pending).toBe(true);
+  });
   it("does not eat malformed expressions or permit identifier ranges", () => {
-    for (const query of ["#006-#012", "cert:6018503138-89733218", "year:banana", "before banana"]) {
+    for (const query of [
+      "#006-#012",
+      "cert:6018503138-89733218",
+      "year:banana",
+      "before banana",
+      "over holo",
+      "over cert:89733218",
+    ]) {
       expect(parseQuery(query, index.dictionary).draft).toBe(query);
       expect(filterRecords(index, parseQuery(query, index.dictionary))).toHaveLength(0);
     }
@@ -219,5 +266,153 @@ describe("identifiers, context and drafts", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("sorting and ownership keywords", () => {
+  it.each([
+    ["cheapest", "asc", ["d", "a", "b", "c", "e"]],
+    ["low to high", "asc", ["d", "a", "b", "c", "e"]],
+    ["LOW  to\u00a0HIGH", "asc", ["d", "a", "b", "c", "e"]],
+    ["most expensive", "desc", ["e", "c", "b", "a", "d"]],
+    ["high to low", "desc", ["e", "c", "b", "a", "d"]],
+  ])("commits %s as a sort chip without filtering results", (query, direction, expected) => {
+    const value = updateDraft(emptySearch, String(query), index.dictionary, true);
+    expect(value.draft).toBe("");
+    expect(value.tokens).toEqual([
+      expect.objectContaining({ field: "price", operator: "sort", direction, values: [] }),
+    ]);
+    expect(
+      filterRecords(index, parseQuery(String(query), index.dictionary)).map((record) => record.id),
+    ).toEqual(expected);
+  });
+
+  it("combines sort keywords with bounds and uses the final order for the same field", () => {
+    expect(
+      filterRecords(index, parseQuery("Slaking under $100 cheapest", index.dictionary)).map(
+        (record) => record.id,
+      ),
+    ).toEqual(["d", "a"]);
+    expect(
+      filterRecords(index, parseQuery("Slaking $50-$150 most expensive", index.dictionary)).map(
+        (record) => record.id,
+      ),
+    ).toEqual(["c", "b", "a"]);
+    expect(
+      filterRecords(index, parseQuery("cheapest most expensive", index.dictionary)).map(
+        (record) => record.id,
+      ),
+    ).toEqual(["e", "c", "b", "a", "d"]);
+  });
+
+  it("sorts unknown prices last in either direction and preserves stable ties", () => {
+    const prices = buildIndex(
+      [
+        card("missing-z", { fair_market_value: undefined }),
+        card("listed", { listed_value: 10, fair_market_value: 100 }),
+        card("fallback", { fair_market_value: 20 }),
+        card("free", { listed_value: 0 }),
+        card("tie", { listed_value: 10 }),
+        card("missing-a", { fair_market_value: undefined }),
+      ],
+      index.dictionary.fields,
+    );
+    expect(
+      filterRecords(prices, parseQuery("cheapest", prices.dictionary)).map((record) => record.id),
+    ).toEqual(["free", "listed", "tie", "fallback", "missing-a", "missing-z"]);
+    expect(
+      filterRecords(prices, parseQuery("most expensive", prices.dictionary)).map(
+        (record) => record.id,
+      ),
+    ).toEqual(["fallback", "listed", "tie", "free", "missing-a", "missing-z"]);
+  });
+
+  it("keeps incomplete sort phrases pending without consuming similar ordinary words", () => {
+    expect(parseQuery("low to ", index.dictionary)).toMatchObject({ tokens: [], pending: true });
+    expect(parseQuery("cheapestish", index.dictionary)).toMatchObject({
+      tokens: [],
+      draft: "cheapestish",
+      pending: false,
+    });
+  });
+
+  it.each(["mine", "vaulted"])("filters %s through the configured ownership field", (keyword) => {
+    const owned = buildIndex(
+      [
+        card("owned", { ownership: ["mine", "vaulted"], listed_value: 60 }),
+        card("expensive-owned", { ownership: ["mine", "vaulted"], listed_value: 120 }),
+        card("unowned", { ownership: [], listed_value: 25 }),
+      ],
+      index.dictionary.fields,
+    );
+    const query = `${keyword} under $100`;
+    expect(parseQuery(query, owned.dictionary).tokens[0]).toMatchObject({
+      field: "ownership",
+      values: [keyword],
+    });
+    expect(
+      filterRecords(owned, parseQuery(query, owned.dictionary)).map((record) => record.id),
+    ).toEqual(["owned"]);
+  });
+
+  it.each(["-mine", "not mine"])("negates ownership filters: %s", (query) => {
+    const scoped = buildIndex(
+      [
+        card("owned", { ownership: ["mine", "vaulted"], listed_value: 60 }),
+        card("unowned", { ownership: [], listed_value: 25 }),
+      ],
+      index.dictionary.fields,
+    );
+    const parsed = parseQuery(query, scoped.dictionary);
+    expect(parsed.tokens[0]).toMatchObject({
+      field: "ownership",
+      values: ["mine"],
+      negated: true,
+    });
+    expect(filterRecords(scoped, parsed).map((record) => record.id)).toEqual(["unowned"]);
+  });
+
+  it("negates categorical and numeric filters without changing their positive grammar", () => {
+    const scoped = buildIndex(
+      [
+        card("slaking", { language: "en", grade: 9, listed_value: 60 }),
+        card("pikachu", {
+          subject: "Pikachu",
+          language: "en",
+          grade: 10,
+          listed_value: 100,
+        }),
+        card("japanese", {
+          subject: "Alakazam",
+          language: "jp",
+          grade: 8,
+          listed_value: 110,
+        }),
+      ],
+      index.dictionary.fields,
+    );
+    for (const [query, expected] of [
+      ["not pikachu", ["japanese", "slaking"]],
+      ["not jp", ["pikachu", "slaking"]],
+      ["not above 100", ["pikachu", "slaking"]],
+      ["not 10", ["japanese", "slaking"]],
+      ["not pikachu not alakazam", ["slaking"]],
+    ] as const) {
+      const parsed = parseQuery(query, scoped.dictionary);
+      expect(parsed.draft).toBe("");
+      expect(parsed.tokens[0].negated).toBe(true);
+      expect(filterRecords(scoped, parsed).map((record) => record.id)).toEqual(expected);
+    }
+  });
+
+  it("interprets about as an inclusive ten percent range", () => {
+    const parsed = parseQuery("about $100", index.dictionary);
+    expect(parsed).toMatchObject({ draft: "", tokens: [{ field: "price", operator: "range" }] });
+    expect(parsed.tokens[0].values).toEqual([90, 110]);
+    expect(filterRecords(index, parsed).map((record) => record.id)).toEqual(["b"]);
+    expect(parseQuery("about $100.00", index.dictionary).tokens[0]).toMatchObject({
+      label: "from $90.00 to $110.00",
+      compactLabel: "$90.00–$110.00",
+    });
   });
 });

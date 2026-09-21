@@ -1,13 +1,27 @@
-import { useState } from "react";
-import { formatMoney } from "./collectibles.ts";
+import { useState, ViewTransition } from "react";
 import type { Collectible } from "./collectibles.ts";
+import { BuyButton } from "./BuyButton.tsx";
 
-function CardImage({ item }: { item: Collectible }) {
+export function CardImage({
+  item,
+  eager = false,
+  shared = false,
+  hidden = false,
+}: {
+  item: Collectible;
+  eager?: boolean;
+  shared?: boolean;
+  hidden?: boolean;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const available = item.image_url && !failed;
-  return (
-    <div className="card-image" data-loaded={loaded}>
+  const image = (
+    <div
+      className="card-image"
+      data-loaded={loaded}
+      style={hidden ? { visibility: "hidden" } : undefined}
+    >
       {available ? (
         <>
           {item.lqip_base64 && !loaded ? (
@@ -19,10 +33,10 @@ function CardImage({ item }: { item: Collectible }) {
             />
           ) : null}
           <img
-            className="card-photo"
+            className={`card-photo${eager ? " is-eager" : ""}`}
             src={item.image_url}
             alt={item.title}
-            loading="lazy"
+            loading={eager ? "eager" : "lazy"}
             decoding="async"
             onLoad={() => setLoaded(true)}
             onError={() => setFailed(true)}
@@ -37,27 +51,67 @@ function CardImage({ item }: { item: Collectible }) {
       )}
     </div>
   );
+  return shared ? (
+    <ViewTransition
+      name={`card-image-${item.id}`}
+      share={{ "detail-navigation": "none", default: "card-image-morph" }}
+      default="none"
+    >
+      {image}
+    </ViewTransition>
+  ) : (
+    image
+  );
 }
 
-export function CollectibleCard({ item }: { item: Collectible }) {
+type Props = {
+  item: Collectible;
+  onOpen?: () => void;
+  onBuy?: () => void;
+  onSell?: () => void;
+  owned?: boolean;
+  balance?: number;
+  ready?: boolean;
+  inDetail?: boolean;
+};
+
+export function CollectibleCard({
+  item,
+  onOpen,
+  onBuy,
+  onSell,
+  owned = false,
+  balance = 0,
+  ready = false,
+  inDetail = false,
+}: Props) {
   return (
-    <article className="collectible-card" aria-label={item.title}>
-      <CardImage key={item.image_url} item={item} />
-      <h2 title={item.title}>
+    <article
+      className={`collectible-card${inDetail ? " is-detail-active" : ""}`}
+      data-item-id={item.id}
+      aria-label={item.title}
+    >
+      <button
+        type="button"
+        className="card-open"
+        aria-label={`View ${item.title}`}
+        disabled={!onOpen}
+        onClick={onOpen}
+      >
+        <CardImage key={item.image_url} item={item} shared={!inDetail} hidden={inDetail} />
+      </button>
+      <h2 className="card-title" title={item.title}>
         {item.subject}
         {item.set_number ? ` #${item.set_number.split("/")[0]}` : ""} · {item.grader} {item.grade}
       </h2>
-      {item.listed_value !== undefined ? (
-        <button type="button" className="buy-button">
-          Buy for {formatMoney(item.listed_value)}
-        </button>
-      ) : (
-        <p className="estimated-value">
-          {item.fair_market_value !== undefined
-            ? `Est. ${formatMoney(item.fair_market_value)}`
-            : "Value unavailable"}
-        </p>
-      )}
+      <BuyButton
+        item={item}
+        owned={owned}
+        balance={balance}
+        ready={ready}
+        onBuy={onBuy}
+        onSell={onSell}
+      />
     </article>
   );
 }

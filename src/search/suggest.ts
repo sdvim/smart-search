@@ -1,7 +1,8 @@
 import { filterRecords } from "./filter.ts";
 import type { SearchIndex } from "./index-data.ts";
 import { parseQuery } from "./parse.ts";
-import { normalize } from "./types.ts";
+import { preferenceScore } from "./preferences.ts";
+import { normalize, normalizedPrefixLength } from "./types.ts";
 import type { SearchContext, SearchRecord, SearchSuggestion } from "./types.ts";
 
 export function nearestPowerOfTen(value: number) {
@@ -31,6 +32,9 @@ export function suggest<T extends SearchRecord>(
     const candidates: { text: string; rank: number; field: string }[] = [];
     const addCandidate = (text: string, rank: number) =>
       candidates.push({ text, rank, field: field.key });
+    if (prefix)
+      for (const alias of Object.values(field.sortAliases ?? {}).flat())
+        addCandidate(alias, field.priority * 100);
     if (field.kind !== "number") {
       for (const entry of index.dictionary.entries.filter((entry) => entry.field === field.key)) {
         const forms = [
@@ -38,11 +42,20 @@ export function suggest<T extends SearchRecord>(
           ...(field.prefix ? [`${field.prefix} ${entry.value}`] : []),
           ...field.aliases.map((alias) => `${alias}:${entry.value}`),
         ];
-        for (const text of forms) addCandidate(text, field.priority * 100);
+        for (const text of forms)
+          addCandidate(
+            text,
+            field.priority * 100 - preferenceScore(field, entry.value, context) * 50,
+          );
       }
     } else {
       const values = index.dictionary.numeric_values[field.key] ?? [];
       if (field.inference === "price") {
+        if (context.price_range) {
+          const [minimum, maximum] = context.price_range;
+          addCandidate(`between $${minimum} and $${maximum}`, field.priority * 100 - 100);
+          addCandidate(`under $${maximum}`, field.priority * 100 - 90);
+        }
         const ceilings = [
           ...new Set(
             [wallet, ...values.map(nearestPowerOfTen)].filter(
@@ -54,17 +67,28 @@ export function suggest<T extends SearchRecord>(
           for (const [position, text] of [`under $${value}`, `<$${value}`, `$${value}`].entries())
             addCandidate(text, field.priority * 100 + (value === wallet ? -50 : 0) + position);
           addCandidate(`at least price $${value}`, field.priority * 100 + 4);
+          addCandidate(`about $${value}`, field.priority * 100 + 5);
+          addCandidate(`about ${value}`, field.priority * 100 + 6);
         }
       } else if (field.inference === "grade") {
+        const personalized = values.some((value) => preferenceScore(field, value, context) > 0);
         for (const value of values) {
+          const gradeRank = personalized
+            ? -preferenceScore(field, value, context) * 50
+            : Math.abs(9 - value) * 10;
           for (const [position, text] of [
             `grade ${value}+`,
             `${value}+`,
             `g:${value}`,
             `grade ${value}`,
           ].entries())
-            addCandidate(text, field.priority * 100 + Math.abs(9 - value) * 10 + position);
-          addCandidate(`at least grade ${value}`, field.priority * 100 + 4);
+            addCandidate(text, field.priority * 100 + gradeRank + position);
+          addCandidate(
+            `at least grade ${value}`,
+            field.priority * 100 + (personalized ? gradeRank : 0) + 4,
+          );
+          addCandidate(`about grade ${value}`, field.priority * 100 + gradeRank + 5);
+          addCandidate(`about ${value}`, field.priority * 100 + gradeRank + 6);
         }
       } else if (field.inference === "year") {
         for (const value of [...new Set(values.map((value) => Math.ceil((value + 1) / 10) * 10))]) {
@@ -75,13 +99,15 @@ export function suggest<T extends SearchRecord>(
           ].entries())
             addCandidate(text, field.priority * 100 + position);
           addCandidate(`at least year ${value}`, field.priority * 100 + 3);
+          addCandidate(`about year ${value}`, field.priority * 100 + 4);
+          addCandidate(`about ${value}`, field.priority * 100 + 5);
         }
       } else {
         for (const value of values)
           addCandidate(`${field.aliases[0] ?? field.key}:${value}`, field.priority * 100);
       }
       const operator = typed.match(
-        /^(.*?(?:[:<>=$]|\b(?:before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
+        /^(.*?(?:[:<>=$]|\b(?:about|before|after|under|below|over|above|least|most|more|less|fewer|greater|higher|lower|earlier|later|prior|up to|since|than|from|between|to|and))\s*)[\d.]*$/i,
       )?.[1];
       if (operator) {
         const separator = /[\s:<>=$]$/.test(operator) ? "" : " ";
@@ -93,12 +119,15 @@ export function suggest<T extends SearchRecord>(
       .flatMap((candidate) => {
         const normalized = normalize(candidate.text);
         if (!normalized.startsWith(prefix) || normalized === prefix) return [];
+        const remainder = candidate.text.slice(normalizedPrefixLength(candidate.text, prefix));
+        const suffix = /\s$/.test(typed) ? remainder.trimStart() : remainder;
+        if (normalize(typed + suffix) !== normalized) return [];
         const result = parseQuery(candidate.text, index.dictionary);
         if (result.draft || result.tokens.length !== 1) return [];
         if (result.tokens[0].field !== candidate.field) return [];
         const count = filterRecords(narrowed, result).length;
         if (!count || (!prefix && count === remaining.length && parsed.tokens.length)) return [];
-        return [{ ...candidate, count, token: result.tokens[0] }];
+        return [{ ...candidate, count, suffix, token: result.tokens[0] }];
       })
       .sort(
         (a, b) =>
@@ -111,7 +140,7 @@ export function suggest<T extends SearchRecord>(
     if (best)
       return {
         text: best.text,
-        suffix: best.text.slice(typed.length),
+        suffix: best.suffix,
         label: best.token.label,
         token: best.token,
       };

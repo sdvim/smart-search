@@ -14,6 +14,7 @@
   background: var(--search-paper);
   color: var(--search-ink);
   cursor: text;
+  transition: border-color 120ms ease;
   font:
     400 14px/1.5 -apple-system,
     BlinkMacSystemFont,
@@ -67,6 +68,9 @@
   background: color-mix(in srgb, var(--search-ink) 5%, var(--search-paper));
   transition: width 160ms ease;
   height: 22px;
+}
+.search-chip[data-selected="true"] {
+  background: color-mix(in srgb, var(--search-ink) 15%, var(--search-paper));
 }
 .chip-edit,
 .chip-remove {

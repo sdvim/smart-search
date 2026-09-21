@@ -10,6 +10,7 @@ export type SearchField = {
   match?: "family" | "all";
   currency?: boolean;
   fallbackKeys?: string[];
+  sortAliases?: { asc?: string[]; desc?: string[] };
 };
 
 export type DictionaryEntry = { field: string; value: string; normalized: string; count: number };
@@ -23,8 +24,9 @@ export type SearchDictionary = {
 export type QueryToken = {
   id: string;
   field: string;
-  operator: "eq" | "lt" | "lte" | "gt" | "gte" | "range" | "in";
+  operator: "eq" | "lt" | "lte" | "gt" | "gte" | "range" | "in" | "sort";
   values: (string | number)[];
+  negated?: boolean;
   direction?: "asc" | "desc";
   text: string;
   label: string;
@@ -34,7 +36,11 @@ export type QueryToken = {
 export type ParsedQuery = { tokens: QueryToken[]; draft: string; pending: boolean };
 export type SearchValue = { tokens: QueryToken[]; draft: string; editingId: string | null };
 export type SearchSuggestion = { text: string; suffix: string; label: string; token: QueryToken };
-export type SearchContext = { wallet_balance?: number };
+export type SearchContext = {
+  wallet_balance?: number;
+  preferred_values?: Record<string, (string | number)[]>;
+  price_range?: [number, number];
+};
 export type SearchResponse<T> = {
   items: T[];
   total: number;
@@ -54,6 +60,13 @@ export function normalize(value: string) {
     .replace(/[’‘]/g, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function normalizedPrefixLength(value: string, prefix: string) {
+  let length = 0;
+  while (length < value.length && normalize(value.slice(0, length)).length < prefix.length)
+    length++;
+  return length;
 }
 
 export function serializeQuery(value: SearchValue) {

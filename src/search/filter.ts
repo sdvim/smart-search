@@ -69,7 +69,8 @@ export function filterRecords<T extends SearchRecord>(
 ): T[] {
   const groups = new Map<string, QueryToken[]>();
   for (const token of query.tokens)
-    groups.set(token.field, [...(groups.get(token.field) ?? []), token]);
+    if (token.operator !== "sort")
+      groups.set(token.field, [...(groups.get(token.field) ?? []), token]);
   const text = query.pending ? "" : normalize(query.draft);
   const words = text.split(" ").filter(Boolean);
   const fields = index.dictionary.fields;
@@ -78,8 +79,24 @@ export function filterRecords<T extends SearchRecord>(
       const field = fields.find((field) => field.key === key);
       if (!field) return false;
       const combine = field.kind === "number" || field.match === "all" ? "every" : "some";
-      if (!tokens[combine]((token) => matchesToken(record, token, field, index.postings)))
-        return false;
+      if (combine === "every") {
+        if (
+          !tokens.every((token) => {
+            const matches = matchesToken(record, token, field, index.postings);
+            return token.negated ? !matches : matches;
+          })
+        )
+          return false;
+      } else {
+        const positive = tokens.filter((token) => !token.negated);
+        const negative = tokens.filter((token) => token.negated);
+        if (
+          !negative.every((token) => !matchesToken(record, token, field, index.postings)) ||
+          (positive.length > 0 &&
+            !positive.some((token) => matchesToken(record, token, field, index.postings)))
+        )
+          return false;
+      }
     }
     if (!words.length) return true;
     const searchable = normalize(
@@ -90,11 +107,21 @@ export function filterRecords<T extends SearchRecord>(
     );
     return words.every((word) => searchable.split(/\s+/).some((value) => value.startsWith(word)));
   });
-  const sorts = query.tokens.filter((token) => token.direction);
+  const sorts = new Map<string, QueryToken>();
+  for (const token of query.tokens) if (token.direction) sorts.set(token.field, token);
   return results.sort((a, b) => {
-    for (const token of sorts) {
-      const field = fields.find((field) => field.key === token.field)!;
-      const difference = Number(fieldValue(a, field)) - Number(fieldValue(b, field));
+    for (const token of sorts.values()) {
+      const field = fields.find((field) => field.key === token.field);
+      if (!field) continue;
+      const first = fieldValue(a, field);
+      const second = fieldValue(b, field);
+      const firstKnown = typeof first === "number" && Number.isFinite(first);
+      const secondKnown = typeof second === "number" && Number.isFinite(second);
+      if (!firstKnown || !secondKnown) {
+        if (firstKnown !== secondKnown) return firstKnown ? -1 : 1;
+        continue;
+      }
+      const difference = first - second;
       if (difference) return token.direction === "desc" ? -difference : difference;
     }
     return a.id.localeCompare(b.id);

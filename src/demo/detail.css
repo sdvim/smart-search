@@ -1,0 +1,284 @@
+.collectible-detail {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: var(--paper);
+  overscroll-behavior: contain;
+}
+.collectible-detail::backdrop {
+  background: var(--paper);
+}
+::view-transition {
+  pointer-events: none;
+  background: transparent;
+}
+::view-transition-image-pair(root),
+::view-transition-image-pair(.detail-next),
+::view-transition-image-pair(.detail-previous),
+::view-transition-image-pair(.card-image-morph) {
+  isolation: isolate;
+  background: transparent;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-group(root),
+::view-transition-image-pair(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+  background: transparent;
+}
+::view-transition-group(.card-image-morph) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+::view-transition-old(.card-image-morph),
+::view-transition-new(.card-image-morph) {
+  height: 100%;
+  animation: none;
+  mix-blend-mode: normal;
+  background: transparent;
+}
+::view-transition-old(.detail-next),
+::view-transition-new(.detail-next),
+::view-transition-old(.detail-previous),
+::view-transition-new(.detail-previous) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
+  background: transparent;
+}
+::view-transition-group(detail-information) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+::view-transition-old(detail-information),
+::view-transition-new(detail-information) {
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation-fill-mode: both;
+  transform-origin: center;
+  background: transparent;
+}
+::view-transition-old(detail-information) {
+  animation-name: detail-content-exit;
+}
+::view-transition-new(detail-information) {
+  animation-name: detail-content-enter;
+}
+::view-transition-old(.detail-next) {
+  animation-name: detail-exit-left;
+}
+::view-transition-new(.detail-next) {
+  animation-name: detail-enter-right;
+}
+::view-transition-old(.detail-previous) {
+  animation-name: detail-exit-right;
+}
+::view-transition-new(.detail-previous) {
+  animation-name: detail-enter-left;
+}
+@keyframes detail-exit-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes detail-enter-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes detail-exit-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes detail-enter-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes detail-content-enter {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@keyframes detail-content-exit {
+  to {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+.detail-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 16px
+    max(24px, env(safe-area-inset-left));
+}
+.detail-neighbor:focus-visible,
+.detail-navigation button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.detail-close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.detail-close:hover,
+.detail-close:focus-visible {
+  background: var(--ink);
+  color: var(--paper);
+}
+.detail-close:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+.detail-gallery {
+  --detail-image-height: min(62svh, 700px);
+  --detail-image-width: min(72vw, calc(var(--detail-image-height) * 0.6));
+  height: var(--detail-image-height);
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
+}
+.detail-slides {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+.detail-gallery .card-image {
+  width: var(--detail-image-width);
+  height: var(--detail-image-height);
+  max-width: none;
+  margin: 0;
+}
+.detail-gallery img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.detail-neighbor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: max(48px, 10vw);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  opacity: 0.4;
+}
+.detail-neighbor:hover,
+.detail-neighbor:focus-visible {
+  opacity: 0.7;
+}
+.detail-previous {
+  left: 0;
+}
+.detail-next {
+  right: 0;
+}
+.detail-neighbor .card-image {
+  position: absolute;
+  top: 0;
+}
+.detail-previous .card-image {
+  right: calc(100% - 24px);
+}
+.detail-next .card-image {
+  left: calc(100% - 24px);
+}
+.detail-information {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 18px 24px max(32px, env(safe-area-inset-bottom));
+  text-align: center;
+  view-transition-name: detail-information;
+}
+.detail-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  font-size: 12px;
+}
+.detail-navigation span {
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+.detail-navigation button {
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+.detail-navigation button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.detail-information h1 {
+  margin: 0 auto 16px;
+  font-size: 20px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.detail-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 32px;
+  margin: 28px 0 0;
+  text-align: left;
+}
+.detail-metadata dt {
+  margin-bottom: 4px;
+  font-size: 12px;
+  opacity: 0.5;
+}
+.detail-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 500px) {
+  .detail-header {
+    padding-inline: 16px;
+  }
+  .detail-close {
+    width: 36px;
+    height: 36px;
+  }
+  .detail-information h1 {
+    font-size: 16px;
+  }
+}
